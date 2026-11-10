@@ -60,6 +60,7 @@ TW.on("select",function(d){if(!d.panel)return;var h=d.panel.querySelector(".pen"
     if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(url).then(ok,function(){b.textContent=url});else b.textContent=url};
   h.appendChild(b)});
 /* 模块晚于主页面启动加载时：按 hash 或当前选中项重选一次，让所有模块挂上去 */
-var h0=fromHash(),c0=TW.current();if(h0)TW.select(h0);else if(c0)TW.select(c0);
+/* 启动时只选中档案、停在地球上，不自动进 3D */
+var h0=fromHash(),c0=TW.current();TW.quiet=true;if(h0)TW.select(h0);else if(c0)TW.select(c0);TW.quiet=false;
 TW.ux={setYear:function(y){inp.value=y;apply(y)}};
 })();

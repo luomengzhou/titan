@@ -706,6 +706,8 @@ function choose(m){$("tip").style.display="none";if(m.k==="titan"&&hasModel(m.t.
 
 /* ---------- roster ---------- */
 var VERSIONS={godzilla:["godzilla-showa","godzilla-heisei","zilla-1998","godzilla-millennium","godzilla","shin-godzilla","godzilla-earth","godzilla-ultima","godzilla-minus-one"].filter(function(v){return byId[v]})},VARIANT={};
+/* 名录里点一个多版本条目时默认打开哪个版本 */
+var DEFVER={godzilla:"godzilla-minus-one"};
 for(var vg in VERSIONS)VERSIONS[vg].forEach(function(v){if(v!==vg)VARIANT[v]=vg});
 var UNI={toho:"Toho 东宝",monsterverse:"Legendary MonsterVerse",tristar:"TriStar Pictures","kaiju-universe":"Kaiju Universe · Roblox"};
 function base(id){return VARIANT[id]||id}
@@ -719,7 +721,7 @@ function roster(){var l=rosterList(),h="<div class='rh'><span>File Index</span><
   l.forEach(function(t){var cur=base(S.sel)===t.id;h+="<button class='ri' data-id='"+t.id+"' style='--c:"+t.color+"' aria-current='"+cur+"'><span class='no'>"+fileNo(t.id)+"</span><b>"+esc(dn(t))+"</b><i class='d'></i><span class='cn'>"+esc(cn(t))+(VERSIONS[t.id]?" · "+VERSIONS[t.id].length+" 版本":"")+"</span><span class='ht'>"+(t.height_m?t.height_m+" m":"")+"</span></button>"});
   $("roster").innerHTML=h}
 $("roster").addEventListener("click",function(e){var b=e.target.closest(".ri");if(!b)return;var id=b.dataset.id,tg=id;
-  if(base(S.sel)===id&&S.sel!==id)tg=S.sel;else if(!hasModel(id)&&VERSIONS[id]){var mv=VERSIONS[id].filter(hasModel)[0];if(mv)tg=mv}
+  if(base(S.sel)===id)tg=S.sel;else if(DEFVER[id]&&byId[DEFVER[id]])tg=DEFVER[id];else if(!hasModel(id)&&VERSIONS[id]){var mv=VERSIONS[id].filter(hasModel)[0];if(mv)tg=mv}
   if(S.sel!==tg)select(tg);if(hasModel(tg))open3D(tg,G3.open&&G3.id===tg?G3.loc:0)});
 
 /* ---------- dossier ---------- */
@@ -775,7 +777,7 @@ function select(id,loc){var t=byId[id];if(!t)return;loreBuild(id);endStory();if(
   P.querySelectorAll(".loc").forEach(function(b){b.onclick=function(){var l=t.locations[+b.dataset.i];if(hasModel(t.id)){open3D(t.id,+b.dataset.i);return}if(l.layer==="hollow"&&!S.hollow)setHollow(true);flyTo(l.lat,l.lon)}});
   $("toVs").onclick=function(){openVs(t.id)};
   P.querySelectorAll(".vt button").forEach(function(b){b.onclick=function(){select(b.dataset.v)}});
-  if(hasModel(id)&&booted&&!(G3.open&&G3.id===id))open3D(id,loc?Math.max(0,(t.locations||[]).indexOf(loc)):startLoc(id));P.querySelectorAll('.rb').forEach(function(b){b.onclick=function(){select(b.dataset.id)}});
+  if(hasModel(id)&&booted&&!TW.quiet&&!(G3.open&&G3.id===id))open3D(id,loc?Math.max(0,(t.locations||[]).indexOf(loc)):startLoc(id));P.querySelectorAll('.rb').forEach(function(b){b.onclick=function(){select(b.dataset.id)}});
   $("trk").textContent=no;fitName();physDraw()}
 function fine(end){return"<p class='fine'>"+(end?end+"<br>":"")+"粉丝自制的非官方资料页。身高体重取自影片设定资料，预告片链接会打开 YouTube 搜索，六维属性与胜率为主观估算。地图为示意性点阵，坐标为近似值；Skull Island 等为虚构地点。</p>"}
 function panelHead(tag,en,zh,sub){return"<div class='fh'><span>MONARCH // "+tag+"</span><span>"+sub+"</span></div><div class='name' data-fs='"+nameFs(en)+"' style='font-size:"+nameFs(en)+"px'>"+en+"</div><div class='aka'>"+zh+"</div>"}
@@ -828,14 +830,20 @@ function loreBuild(id){var el=$("lore"),a=ART[id]||[];if(LORE.id===id&&el.childE
   el.hidden=!a.length;loreLayout()}
 function stageWH(){var e=$("stage");return[e.clientWidth,e.clientHeight]}
 function loreGeo(){var w=stageWH(),W=w[0],H=w[1],cw=Math.max(96,Math.min(170,W*.15));
-  var m3=$("stage").classList.contains("m3"),top=(m3?120:70)+cw*.45,bot=H-22-cw*.45;return{W:W,H:H,cw:cw,cx:W/2,cy:(top+bot)/2,rx:Math.max(120,W/2-cw*.62-10),ry:Math.max(80,(bot-top)/2),px:W-70,py:m3?112:74}}
+  var m3=$("stage").classList.contains("m3"),top=(m3?120:70)+cw*.45,bot=H-22-cw*.45;return{W:W,H:H,cw:cw,cx:W/2,cy:(top+bot)/2,rx:Math.max(120,W/2-cw*.62-10),ry:Math.max(80,(bot-top)/2),px:W-70,py:m3?112:74,
+    /* 圆环半径受宽度和高度共同限制：近端卡片被透视放大，远端抬高 */
+    R:Math.min((W/2-cw*.62-10)/1.22,((bot-top)/2)/(Math.sin(LTILT)*1.1+.12)),st:Math.sin(LTILT),ct:Math.cos(LTILT),sr:Math.sin(LROLL),cr:Math.cos(LROLL),f:Math.max(W,900)*1.5}}
+/* LTILT：圆环相对屏幕后仰 35°（= 相对水平面 55°）；LROLL：轻微滚转 */
+var LTILT=(90-35)*RAD,LROLL=-6*RAD;
 function loreLayout(){var el=$("lore"),cs=el.querySelectorAll(".lc"),g=loreGeo(),n=cs.length;if(!n)return;
   el.style.setProperty("--cw",(LORE.open?g.cw:74)+"px");
-  var ring=el.querySelector(".lore-ring");ring.style.cssText="left:"+(g.cx-g.rx)+"px;top:"+(g.cy-g.ry)+"px;width:"+(2*g.rx)+"px;height:"+(2*g.ry)+"px";
+  var ring=el.querySelector(".lore-ring");ring.style.cssText="left:"+(g.cx-g.R)+"px;top:"+(g.cy-g.R)+"px;width:"+(2*g.R)+"px;height:"+(2*g.R)+"px;transform:perspective("+g.f+"px) rotateZ("+(LROLL/RAD)+"deg) rotateX("+(90-LTILT/RAD)+"deg)";
   var tag=el.querySelector(".lore-tag");tag.style.left=(g.px-40)+"px";tag.style.top=(g.py+44)+"px";
   for(var i=0;i<n;i++){var c=cs[i],t,z,o=1;
     if(!LORE.open){var k=Math.min(i,5);t="translate("+(g.px+hashR(i,9,5)*3)+"px,"+(g.py+hashR(i,7,3)*2.5)+"px) translate(-50%,-50%) rotate("+hashR(i,23,11)*1.1+"deg)";z=i;o=i>5?0:1}
-    else{var a=LORE.a0+i*2*Math.PI/n,d=(Math.sin(a)+1)/2,sc=.74+.34*d;t="translate("+(g.cx+g.rx*Math.cos(a))+"px,"+(g.cy+g.ry*Math.sin(a))+"px) translate(-50%,-50%) scale("+sc.toFixed(3)+")";z=10+Math.round(d*100);o=.5+.5*d}
+    else{/* 3D 圆环：绕 X 轴后仰 TILT（远端抬高、变小），再绕视线滚转 ROLL，带透视 */
+      var a=LORE.a0+i*2*Math.PI/n,X=g.R*Math.cos(a),Z=g.R*Math.sin(a),Y=Z*g.st,Zc=Z*g.ct,p=g.f/(g.f-Zc),xs=X*p,ys=Y*p,d=(Zc/g.R+1)/2,sc=(.92*p);
+      t="translate("+(g.cx+xs*g.cr-ys*g.sr)+"px,"+(g.cy+xs*g.sr+ys*g.cr)+"px) translate(-50%,-50%) scale("+sc.toFixed(3)+")";z=10+Math.round(d*100);o=.42+.58*d}
     c.style.transform=t;c.style.zIndex=z;c.style.opacity=o}}
 function loreOpen(){if(LORE.open)return;LORE.open=true;$("lore").classList.add("open");loreLayout();
   if(!reduce)setTimeout(function(){if(!LORE.open)return;$("lore").classList.add("orbit");LORE.last=performance.now();LORE.raf=requestAnimationFrame(loreSpin)},850)}
@@ -1273,7 +1281,10 @@ async function init3D(){if(G3.loading)return;G3.loading=true;setLoad("载入 thr
    var path=new THREE.CurvePath();for(k=0;k<n;k++)path.add(new THREE.LineCurve3(pts[k],pts[k+1]));b.m.geometry.dispose();b.m.geometry=new THREE.TubeGeometry(path,n*2,rad,4,false);b.m.material.color.setHex(color);b.m.visible=true;b.until=ts+life}
  /* sparkles (Mothra) */
  var spN=600,spG=new THREE.BufferGeometry(),spP=new Float32Array(spN*3),spV=[];for(var i=0;i<spN;i++){spV.push(new V3((Math.random()-.5)*.02,Math.random()*.02,(Math.random()-.5)*.02))}
- spG.setAttribute("position",new THREE.BufferAttribute(spP,3));var spM=new THREE.PointsMaterial({color:0x9ff8ff,size:.05,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false,fog:false});var sparks=new THREE.Points(spG,spM);sparks.frustumCulled=false;scene.add(sparks);
+ spG.setAttribute("position",new THREE.BufferAttribute(spP,3));var spC=new Float32Array(spN*3);for(i=0;i<spN*3;i++)spC[i]=.55+.45*Math.random();spG.setAttribute("color",new THREE.BufferAttribute(spC,3));
+ /* 鳞粉用柔边圆形光斑贴图，不再是默认的方块点 */
+ var spc=mkc(64,64),spx=spc.getContext("2d"),spg=spx.createRadialGradient(32,32,0,32,32,32);spg.addColorStop(0,"rgba(255,255,255,1)");spg.addColorStop(.18,"rgba(255,255,255,.85)");spg.addColorStop(.45,"rgba(255,255,255,.22)");spg.addColorStop(1,"rgba(255,255,255,0)");spx.fillStyle=spg;spx.fillRect(0,0,64,64);
+ var spM=new THREE.PointsMaterial({color:0x9ff8ff,size:.06,map:new THREE.CanvasTexture(spc),vertexColors:true,sizeAttenuation:true,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false,fog:false});var sparks=new THREE.Points(spG,spM);sparks.frustumCulled=false;scene.add(sparks);
  var root=new THREE.Group();scene.add(root);var UP=new V3(0,1,0);
  /* --- per-model loading --- */
  var CACHE={},cur=null,tl=new THREE.TextureLoader();
@@ -1371,7 +1382,7 @@ async function init3D(){if(G3.loading)return;G3.loading=true;setLoad("载入 thr
    baseDist=Math.max((H/2)/Math.tan(vf/2)*1.12,(W/2)/Math.tan(hf/2)*1.02)+W*.22;target.set(0,b.min.y+H*.47,0);controls.minDistance=baseDist*.18;controls.maxDistance=baseDist*2.6}
  function resize(){var r=(cv3.parentElement||stageEl).getBoundingClientRect(),w=Math.max(2,r.width),h=Math.max(2,r.height);renderer.setSize(w,h,false);composer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();frame();if(VS.on){vsBgSize();mkBg(VS.cv);vsFrame()}else mkBg()}
  /* run state */
- var running=false,fireT0=-1e9,fireAct=null,VS={on:false},FIRE_LEN={heat:7.6,gravity:6,storm:7,lava:5,glow:6,emp:4.5,frost:6,proton:6,breath:6},shake=new V3(),introT0=0,introFrom=null,tmpA=new V3();
+ var G3X=[],running=false,fireT0=-1e9,fireAct=null,VS={on:false},FIRE_LEN={heat:7.6,gravity:6,storm:7,lava:5,glow:6,emp:4.5,frost:6,proton:6,breath:6},shake=new V3(),introT0=0,introFrom=null,tmpA=new V3();
  function ease(x){x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)}
  function outBack(x){x=Math.max(0,Math.min(1,x));var c1=1.4,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2)}
  function chainPoint(e,f){var P=e.chain.map(function(n){return e.wp(n)}),cum=[0];for(var i=1;i<P.length;i++)cum.push(cum[i-1]+P[i].distanceTo(P[i-1]));var t=Math.max(0,Math.min(1,f))*cum[cum.length-1];
@@ -1394,7 +1405,7 @@ async function init3D(){if(G3.loading)return;G3.loading=true;setLoad("载入 thr
   else if(e.U){e.U.uFront.value=-1;e.U.uGlow.value=0;e.U.uFlash.value=0;e.beamK=0;e.beamCol=null}
   var em=1;
   if(act==="lava"&&on){charge=p<1.4?ease(p/1.4):p<3.4?1:1-ease((p-3.4)/1.6);em=1+7*charge*(reduce?1:.85+.15*Math.sin(t*23));bloom.strength=.45+charge;fxLight.color.setHex(0xff6a1a);fxLight.position.set(0,e.box.max.y*.7,0);fxLight.intensity=30*charge;amp=.01*charge}
-  if(act==="glow"&&on){charge=p<1.2?ease(p/1.2):p<4.4?1:1-ease((p-4.4)/1.6);em=1+9*charge*(reduce?1:.75+.25*Math.sin(t*6));bloom.strength=.45+.9*charge;fxLight.color.setHex(0x9ff8ff);fxLight.position.set(0,e.box.max.y*.6,0);fxLight.intensity=24*charge;spM.opacity=.9*charge}
+  if(act==="glow"&&on){charge=p<1.2?ease(p/1.2):p<4.4?1:1-ease((p-4.4)/1.6);em=1+3.2*charge*(reduce?1:.75+.25*Math.sin(t*6));bloom.strength=.45+.4*charge;fxLight.color.setHex(0x9ff8ff);fxLight.position.set(0,e.box.max.y*.6,0);fxLight.intensity=14*charge;spM.opacity=.9*charge}
   if(act==="emp"&&on){charge=p<.8?ease(p/.8):p<2.6?1:1-ease((p-2.6)/1.9);em=1+8*charge;bloom.strength=.45+charge*.9;var wk=Math.max(0,(p-.8)/2.4);wave.scale.setScalar(.5+wk*14);wave.material.color.setHex(0x9fdcff);wave.material.opacity=wk>0&&wk<1?(1-wk)*.9:0;
     GFX.flick=charge>.5?1:0;fxLight.color.setHex(0x9fdcff);fxLight.position.set(0,e.box.max.y*.8,0);fxLight.intensity=20*charge*(Math.random()<.3?0:1);amp=.01*charge}
   if(act==="storm"&&on){charge=p<.6?ease(p/.6):p<5.6?1:1-ease((p-5.6)/1.4);bloom.strength=.45+.35*charge;e.mats.forEach(function(mt){mt.emissiveIntensity=.12*charge*(Math.random()<.2?2.5:1)});
@@ -1442,7 +1453,7 @@ async function init3D(){if(G3.loading)return;G3.loading=true;setLoad("载入 thr
   var ik=reduce?1:(ts-introT0)/2200;root.scale.setScalar(.06+.94*outBack(ik));
   if(introFrom&&ik<1){camera.position.lerpVectors(introFrom,camEnd,ease(ik))}else introFrom=null;
   shrine.visible=cur.id==="king-ghidorah"&&G3.cur==="volcano";
-  var amp=animate(cur,ts);
+  var amp=animate(cur,ts);for(var hk=0;hk<G3X.length;hk++){try{amp=Math.max(amp,G3X[hk](ts,cur)||0)}catch(x){console.error("[g3x]",x)}}
   var pk=reduce?.5:(ts/3200)%1;pulse.scale.setScalar(.6+pk*6);pulse.material.opacity=(1-pk)*.6;
   controls.update();amp=reduce?0:amp;if(amp){shake.set((Math.random()-.5)*amp,(Math.random()-.5)*amp,(Math.random()-.5)*amp);camera.position.add(shake)}
   if(bgTex)bgTex.needsUpdate=true;composer.render();if(amp)camera.position.sub(shake)}
@@ -1541,6 +1552,18 @@ async function init3D(){if(G3.loading)return;G3.loading=true;setLoad("载入 thr
   fire:function(a){if(!cur||VS.on)return;var L=FIRE_LEN[a]||0;if(fireAct&&performance.now()-fireT0<(FIRE_LEN[fireAct]||0)*1000)return;fireAct=a;fireT0=performance.now();document.querySelectorAll("#g3acts .fire").forEach(function(b){b.disabled=true})},
   rotate:function(on){controls.autoRotate=on},resize:resize,zoom:zoom,
   vs:function(a,b){var ar=$("vsArena");if(cv3.parentElement!==ar){ar.insertBefore(cv3,ar.firstChild);cv3.style.cssText="position:absolute;inset:0;width:100%;height:100%;opacity:1;pointer-events:auto"}vs(a,b)},vsEnd:vsEnd};
+ /* ---------- TW.g3：给 tw-gesture.js 等插件用的 3D 接口 ----------
+    hold(act,p)  把技能时间轴"按住"在第 p 秒（手势蓄力用；之后不再调用 hold 时间就会自然往下走）
+    cancel()     立刻取消当前技能；hook(f) 每帧在 animate 之后调用 f(ts,cur)，返回值作为震屏幅度 */
+ function fireBtns(dis){document.querySelectorAll("#g3acts .fire").forEach(function(b){b.disabled=dis})}
+ TW.g3={THREE:THREE,V3:V3,scene:scene,camera:camera,controls:controls,canvas:cv3,UP:UP,wave:wave,GFX:GFX,bloom:bloom,fxLight:fxLight,spawnBolt:spawnBolt,sparks:{geo:spG,mat:spM,n:spN},
+  hook:function(f){G3X.push(f)},cur:function(){return VS.on?null:cur},live:function(){return running&&!VS.on&&!!cur&&G3.open},
+  acts:function(id){return((MODELS[id]||{}).acts||[]).map(function(a){return a.slice()})},kind:function(id){return(MODELS[id]||{}).kind||null},
+  busy:function(){return!!fireAct&&performance.now()-fireT0<(FIRE_LEN[fireAct]||0)*1000},act:function(){return fireAct},
+  fire:function(a){G3.api.fire(a)},
+  hold:function(a,p){if(!cur||VS.on)return false;fireAct=a;fireT0=performance.now()-p*1000;fireBtns(true);return true},
+  cancel:function(){fireAct=null;fireT0=-1e9;fireBtns(false)}};
+
  controls.addEventListener("start",function(){if(controls.autoRotate){controls.autoRotate=false;$("g3rot").setAttribute("aria-pressed","false")}});
  G3.ready=true;G3.loading=false;setLoad("",null);if(G3.vsPending){var vp=G3.vsPending;G3.vsPending=null;G3.api.vs(vp[0],vp[1])}else if(G3.open)show(G3.id);
 }
@@ -1568,7 +1591,7 @@ async function init3D(){if(G3.loading)return;G3.loading=true;setLoad("载入 thr
 })();
 /* ---------- boot ---------- */
 addEventListener("resize",function(){fit();if($("vs").classList.contains("on"))renderVs()});
-var booted=false;fit();roster();TW.emit("boot",{});if(!S.sel)select(byId.godzilla?"godzilla":D.titans[0].id);booted=true;S.auto=!reduce;S.fly=null;
+var booted=false;fit();roster();TW.emit("boot",{});if(!S.sel)select(byId[DEFVER.godzilla]?DEFVER.godzilla:byId.godzilla?"godzilla":D.titans[0].id);booted=true;S.auto=!reduce;S.fly=null;
 var L0=(byId[S.sel].locations||[])[0];if(L0){S.lon=L0.lon-25;S.lat=Math.max(-40,Math.min(40,L0.lat))}
 requestAnimationFrame(loop);
 })();
@@ -1672,5 +1695,6 @@ requestAnimationFrame(loop);
 <script src="tw-idle.js"></script>
 <script src="tw-ux.js"></script>
 <script src="tw-vs-battle.js"></script>
+<script src="tw-gesture.js"></script>
 </body>
 </html>

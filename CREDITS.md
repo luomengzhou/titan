@@ -116,3 +116,7 @@
 
 - `intro.mp3`、`bgm.mp3`：原创合成音频。
 - 档案中的怪兽吼声（`r/*.mp3`）由 `tools/roar_synth.py` 按各怪兽叫声特征原创合成，声纹图（`r/*.png`）是这些音频的真实频谱图；未使用任何电影原声。没有预渲染文件的怪兽由 `tw-roar.js` 在浏览器中实时合成。
+
+## 手势识别
+
+- `hand/`：[MediaPipe](https://github.com/google-ai-edge/mediapipe) Hands（npm `@mediapipe/hands` 0.4.1675469240）与 Selfie Segmentation（npm `@mediapipe/selfie_segmentation` 0.1.1675465747），Google · Apache License 2.0。为了能在静态托管上正常加载，`.binarypb` / `.data` / `.tflite` 文件改名为 `.wasm`，内容未改动。
