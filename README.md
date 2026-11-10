@@ -64,7 +64,7 @@ index.html        主页面：地球、档案、3D、剧情、VS、开场界面�
 data.js           泰坦数据：名字、身高、出没点坐标、六维属性、简介
 data2.js          追加的泰坦 + 修正过的尺寸数据
 data3.js          档案风改版的数据补丁（地点中英文名、战绩出处）
-tw-roar.js        生物声纹：吼声合成 + 声纹动画
+tw-roar.js        生物声纹：播放吼声 + 频谱图声纹（播放头扫过）
 tw-declass.js     档案解密进度
 tw-myth.js        神话起源图层
 tw-idle.js        闲置时的异常警报
@@ -72,6 +72,8 @@ tw-ux.js          URL 直达、键盘切换、年份滑条
 tw-vs-battle.js   VS 光束对撞
 m/                3D 模型（.wasm 其实是改了后缀的 GLB/FBX）和贴图
 art/              神话原画（Wikimedia Commons）
+r/                每只泰坦的吼声 <id>.mp3 + 对应频谱图 <id>.png
+tools/roar_synth.py  生成 r/ 的 Python 脚本（改参数后重跑即可）
 bgm.mp3 intro.mp3 背景音乐与开场警报
 ```
 
