@@ -45,7 +45,7 @@ var hover=null;
 TW.on("draw",function(d){if(!on)return;var c=d.ctx,sel=TW.current(),seen={};
   for(var id in ORIGIN){if(!TW.byId[id])continue;ORIGIN[id].forEach(function(o){var key=o[0];var p=d.proj(o[1],o[2]);if(p.z<0)return;
     var isSel=id===sel,s=isSel?6:4;if(seen[key]&&!isSel)return;seen[key]=1;
-    c.save();c.translate(p.x,p.y);c.rotate(Math.PI/4);c.fillStyle=isSel?GOLD:"rgba(230,195,106,.55)";c.strokeStyle="#061219";c.lineWidth=1;c.fillRect(-s/2,-s/2,s,s);c.strokeRect(-s/2,-s/2,s,s);c.restore();
+    c.save();c.translate(p.x,p.y);c.rotate(Math.PI/4);c.fillStyle=isSel?GOLD:"rgba(230,195,106,.55)";c.strokeStyle="#08080a";c.lineWidth=1;c.fillRect(-s/2,-s/2,s,s);c.strokeRect(-s/2,-s/2,s,s);c.restore();
     if(isSel){c.font="500 11px 'IBM Plex Mono',monospace";c.fillStyle=GOLD;c.fillText("◆ "+o[0],p.x+9,p.y+4)}})}
   /* arc: first sighting → origin(s) */
   var t=TW.byId[sel],O=ORIGIN[sel];if(!t||!O||!t.locations||!t.locations.length)return;var L=t.locations[0],A=TW.vec(L.lat,L.lon);
@@ -61,7 +61,7 @@ function projV(d,v){var r=Math.hypot(v[0],v[1],v[2]),u=[v[0]/r,v[1]/r,v[2]/r],la
   var ox=d.cx!=null?d.cx:d.w/2,oy=d.cy!=null?d.cy:d.h/2,x=ox+(p.x-ox)*r,y=oy+(p.y-oy)*r,dist=Math.hypot(x-ox,y-oy);return{x:x,y:y,vis:p.z>0||dist>d.R}}
 
 /* dossier line */
-var css=document.createElement("style");css.textContent=".twm{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.twm button{background:none;border:1px solid #e6c36a55;color:#e6c36a;border-radius:4px;padding:3px 9px;font:12px var(--f-body)}.twm button:hover{background:#e6c36a1a}.twm button small{color:var(--dim);margin-left:6px;font-size:11px}";document.head.appendChild(css);
+var css=document.createElement("style");css.textContent=".twm{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.twm button{background:none;border:1px solid #e6c36a55;color:#e6c36a;border-radius:0;padding:3px 9px;font:12px var(--f-body)}.twm button:hover{background:#e6c36a1a}.twm button small{color:var(--dim);margin-left:6px;font-size:11px}";document.head.appendChild(css);
 TW.on("select",function(d){var O=ORIGIN[d.id];if(!O||!d.panel)return;var bio=d.panel.querySelector("[data-tw='bio']");
   var el=document.createElement("div");el.className="twm";el.innerHTML=O.map(function(o,i){return"<button data-i='"+i+"'>◆ 神话原点 · "+o[0]+"<small>"+o[3]+"</small></button>"}).join("");
   el.onclick=function(e){var b=e.target.closest("button");if(!b)return;var o=O[+b.dataset.i];if(!on){on=true;btn.setAttribute("aria-pressed","true")}TW.flyTo(o[1],o[2]);TW.emit("myth",{id:d.id,origin:o[0]})};

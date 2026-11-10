@@ -30,13 +30,13 @@ function first(t){var y=(t.films||[]).map(function(f){return f.year}).filter(Boo
 var YRS=TW.data.titans.map(first).filter(Boolean),Y0=Math.min.apply(null,YRS),Y1=Math.max.apply(null,YRS);
 var FILM={};TW.data.titans.forEach(function(t){(t.films||[]).forEach(function(f){(FILM[f.year]=FILM[f.year]||{})[f.title_cn||f.title]=1})});
 var css=document.createElement("style");css.textContent=
-".twy{position:absolute;left:50%;bottom:34px;transform:translateX(-50%);width:min(560px,86%);display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(6,18,25,.86);border:1px solid var(--seam);border-radius:6px;z-index:4;backdrop-filter:blur(4px)}"+
+".twy{position:absolute;left:50%;bottom:34px;transform:translateX(-50%);width:min(560px,86%);display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(8,8,10,.86);border:1px solid var(--seam);border-radius:0;z-index:4;backdrop-filter:blur(4px)}"+
 ".twy button{flex:none;width:30px;height:30px;border-radius:50%;border:1px solid var(--amber);background:none;color:var(--amber);font-size:12px}"+
 ".twy input{flex:1;accent-color:var(--amber)}.twy .yr{font:400 26px VT323,var(--f-mono);color:var(--amber);min-width:52px;text-align:right;line-height:1}"+
 ".twy .yf{position:absolute;left:12px;right:12px;bottom:100%;margin-bottom:6px;font:11px var(--f-mono);color:var(--dim);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}"+
-".twy .all{width:auto;height:auto;border-radius:4px;padding:3px 8px;font:500 11px var(--f-display);border-color:var(--seam);color:var(--ink)}.twy .all[aria-pressed='true']{border-color:var(--amber);color:var(--amber)}"+
+".twy .all{width:auto;height:auto;border-radius:0;padding:3px 8px;font:500 11px var(--f-display);border-color:var(--seam);color:var(--ink)}.twy .all[aria-pressed='true']{border-color:var(--amber);color:var(--amber)}"+
 ".m3 .twy{display:none}"+
-".twl{background:none;border:1px solid var(--seam);border-radius:4px;padding:3px 9px;font:11px var(--f-mono);color:var(--dim);margin-left:6px}.twl:hover{color:var(--ink);border-color:var(--sonar)}";
+".twl{background:none;border:1px solid var(--seam);border-radius:0;padding:3px 9px;font:11px var(--f-mono);color:var(--dim);margin-left:6px}.twl:hover{color:var(--ink);border-color:var(--sonar)}";
 document.head.appendChild(css);
 var bar=document.createElement("div");bar.className="twy";
 bar.innerHTML="<div class='yf'></div><button class='pl' aria-label='从 "+Y0+" 年开始播放'>▶</button><input type='range' min='"+Y0+"' max='"+Y1+"' value='"+Y1+"' aria-label='年份'><span class='yr'>ALL</span><button class='all' aria-pressed='true'>全部</button>";
