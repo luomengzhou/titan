@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>泰坦监测站</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=VT323&family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* layout: one-screen console. roster | globe | dossier. single dark theme by choice (deep-sea sonar room) */
+  --abyss:#061219; --hull:#0b1d26; --plate:#102a35; --seam:#1f4350;
+  --ink:#dcebee; --dim:#86a3ad; --sonar:#63d2e4; --amber:#f3a83a; --alert:#ef5d4e;
+  --f-display:"Chakra Petch","Noto Sans SC",sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--abyss);color:var(--ink);font:14px/1.6 var(--f-body);display:flex;flex-direction:column;overflow:hidden}
+button,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+header{display:flex;align-items:center;gap:16px;padding:10px 16px;border-bottom:1px solid var(--seam);background:var(--hull);flex-wrap:wrap}
+h1{font:700 18px/1 var(--f-display);letter-spacing:.08em;margin:0;white-space:nowrap}
+h1 small{font:500 11px var(--f-mono);color:var(--dim);letter-spacing:.12em;margin-left:8px}
+.bar{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+.tog{background:transparent;border:1px solid var(--seam);border-radius:3px;padding:5px 10px;font:500 12px var(--f-display);letter-spacing:.05em;color:var(--dim);display:flex;align-items:center;gap:6px}
+.tog i{width:8px;height:8px;border-radius:50%;background:currentColor;display:inline-block}
+.tog[aria-pressed="true"]{color:var(--ink);border-color:var(--sonar);background:rgba(99,210,228,.1)}
+.tog.hollow[aria-pressed="true"]{border-color:var(--amber);background:rgba(243,168,58,.14);color:var(--amber)}
+.tog.bgm[aria-pressed="true"]{color:var(--amber);border-color:var(--amber);background:rgba(243,168,58,.12)}
+#gate{position:fixed;inset:0;z-index:50;background:#050505;color:#e9e9e9;overflow:hidden;transition:opacity 1.4s,filter 1.4s;font-family:"VT323","IBM Plex Mono",monospace}
+#gate.out{opacity:0;filter:brightness(3) blur(6px);pointer-events:none}
+#gate .wrap{position:absolute;inset:0;animation:quake 8s infinite}
+#gate canvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated}
+#gNoise{opacity:.11;mix-blend-mode:screen}
+#gate .scan{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.45) 0 2px,transparent 2px 4px),radial-gradient(ellipse at 50% 50%,transparent 30%,rgba(0,0,0,.92) 100%)}
+#gate .track{position:absolute;left:0;right:0;height:9vh;top:-10vh;background:linear-gradient(transparent,rgba(255,255,255,.08) 40%,rgba(255,255,255,.18) 50%,rgba(255,255,255,.06) 60%,transparent);filter:blur(1px);animation:track 6.5s linear infinite;pointer-events:none}
+#gate .vf{position:absolute;inset:4vh 4vw;pointer-events:none}
+#gate .vf i{position:absolute;width:5vw;height:5vw;min-width:34px;min-height:34px;border:0 solid rgba(255,255,255,.85)}
+#gate .vf i:nth-child(1){top:0;left:0;border-top-width:3px;border-left-width:3px}
+#gate .vf i:nth-child(2){top:0;right:0;border-top-width:3px;border-right-width:3px}
+#gate .vf i:nth-child(3){bottom:0;left:0;border-bottom-width:3px;border-left-width:3px}
+#gate .vf i:nth-child(4){bottom:0;right:0;border-bottom-width:3px;border-right-width:3px}
+#gate .osd{position:absolute;font-size:clamp(18px,2.1vw,32px);letter-spacing:.06em;line-height:1.15;text-shadow:2px 0 rgba(255,255,255,.25),-2px 0 rgba(120,120,120,.35);pointer-events:none}
+#gate .tl{top:calc(4vh + 22px);left:calc(4vw + 26px)}
+#gate .tr{top:calc(4vh + 22px);right:calc(4vw + 26px);text-align:right}
+#gate .bl{bottom:calc(4vh + 7vh + 26px);left:calc(4vw + 26px)}
+#gate .br{bottom:calc(4vh + 7vh + 26px);right:calc(4vw + 26px);text-align:right}
+#gate .rec b{display:inline-block;width:.62em;height:.62em;border-radius:50%;background:#fff;margin-right:.35em;vertical-align:.05em;animation:blink 1s steps(2) infinite}
+#gate .dim{opacity:.6}
+#gate .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(16px,3.2vh,36px)}
+#gate .gt{position:relative;font:400 clamp(72px,14vw,240px)/.84 "Anton",Impact,sans-serif;text-transform:uppercase;letter-spacing:.03em;text-align:center;color:#f2f2f2;text-shadow:0 0 24px rgba(255,255,255,.28),4px 0 rgba(255,255,255,.18),-4px 0 rgba(90,90,90,.5);animation:glitch 4.7s infinite}
+#gate .gt span{display:block}
+#gate .gt span+span{letter-spacing:.1em}
+#gate .warn{font-size:clamp(16px,1.7vw,26px);letter-spacing:.32em;padding:.15em .6em;background:#e9e9e9;color:#050505;animation:blink 1.4s steps(2) infinite}
+#gate #gateGo{font:400 clamp(22px,2.5vw,38px)/1 "Anton",Impact,sans-serif;letter-spacing:.5em;padding:.55em 1em .55em 1.5em;background:rgba(0,0,0,.35);color:#fff;border:3px solid #fff;border-radius:0;transition:background .12s,color .12s,letter-spacing .4s}
+#gate #gateGo:hover,#gate #gateGo:focus-visible{background:#fff;color:#000;letter-spacing:.62em;outline:none}
+#gate #gateMute{font:400 clamp(16px,1.5vw,22px) "VT323","IBM Plex Mono",monospace;letter-spacing:.45em;padding:4px 2px 4px 10px;background:none;color:rgba(255,255,255,.55);border:0;border-bottom:1px solid rgba(255,255,255,.35);border-radius:0}
+#gate #gateMute:hover,#gate #gateMute:focus-visible{color:#fff;border-bottom-color:#fff;outline:none}
+#gate .seis{position:absolute;left:calc(4vw + 26px);right:calc(4vw + 26px);bottom:calc(4vh + 14px);height:7vh;pointer-events:none}
+@keyframes blink{50%{opacity:.15}}
+@keyframes track{to{top:110vh}}
+@keyframes glitch{0%,100%{transform:none;clip-path:none;opacity:1}38%{transform:none;opacity:1}38.4%{transform:translateX(-14px) skewX(-6deg);clip-path:inset(18% 0 52% 0)}38.8%{transform:translateX(10px);clip-path:inset(60% 0 8% 0)}39.2%{transform:none;clip-path:none;opacity:.2}39.6%{opacity:1}81%{opacity:1}81.3%{opacity:.25;transform:translateX(5px)}81.7%{opacity:1;transform:none}}
+@keyframes quake{0%,84%,100%{transform:none}85%{transform:translate(0,9px)}86.2%{transform:translate(-4px,-5px)}87.5%{transform:translate(3px,4px)}89%{transform:translate(-1px,-2px)}91%{transform:none}}
+@media (prefers-reduced-motion:reduce){#gate .wrap,#gate .gt,#gate .track,#gate .warn,#gate .rec b{animation:none}}
+.tog.vs{color:var(--abyss);background:var(--amber);border-color:var(--amber);font-weight:700}
+main{flex:1;min-height:0;display:grid;grid-template-columns:210px minmax(0,1fr) 410px}
+#roster{border-right:1px solid var(--seam);overflow-y:auto;background:var(--hull);padding:8px}
+.rh{font:500 10px var(--f-mono);color:var(--dim);letter-spacing:.14em;padding:8px 8px 4px}
+.ri{display:grid;grid-template-columns:10px 1fr auto;gap:8px;align-items:center;width:100%;text-align:left;background:none;border:0;border-left:2px solid transparent;padding:6px 8px}
+.ri:hover{background:var(--plate)}
+.ri[aria-current="true"]{background:var(--plate);border-left-color:var(--c)}
+.ri .d{width:9px;height:9px;border-radius:50%;background:var(--c);box-shadow:0 0 8px var(--c)}
+.ri b{font-weight:500;display:block;line-height:1.25}
+.ri span{font:400 10px var(--f-mono);color:var(--dim)}
+.ri em{font:500 10px var(--f-mono);color:var(--dim);font-style:normal}
+#stage{position:relative;min-height:0;overflow:hidden;background:radial-gradient(ellipse at 50% 45%,#0b2530 0,#061219 70%)}
+#globe{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:grab}
+#globe.drag{cursor:grabbing}
+.hud{position:absolute;left:14px;bottom:12px;font:400 11px/1.7 var(--f-mono);color:var(--dim);pointer-events:none}
+.hud b{color:var(--sonar);font-weight:500}
+.legend{position:absolute;left:14px;top:12px;font:400 11px/1.9 var(--f-mono);color:var(--dim);pointer-events:none}
+.legend span{display:flex;align-items:center;gap:7px}
+.legend i{width:9px;height:9px;display:inline-block}
+.zoom{position:absolute;right:12px;bottom:12px;display:flex;flex-direction:column;gap:4px}
+.zoom button{width:32px;height:32px;background:var(--hull);border:1px solid var(--seam);border-radius:3px;font:500 16px var(--f-mono)}
+#tip{position:absolute;pointer-events:none;background:rgba(6,18,25,.94);border:1px solid var(--seam);padding:6px 9px;font-size:12px;border-radius:3px;max-width:260px;display:none;z-index:3}
+#tip b{font-family:var(--f-display)}
+#pick{position:absolute;background:var(--hull);border:1px solid var(--amber);border-radius:3px;display:none;z-index:4;min-width:170px;max-height:260px;overflow:auto}
+#pick div{font:500 10px var(--f-mono);color:var(--dim);padding:6px 10px 2px;letter-spacing:.1em}
+#pick button{display:block;width:100%;text-align:left;background:none;border:0;padding:6px 10px}
+#pick button:hover{background:var(--plate)}
+#panel{border-left:1px solid var(--seam);background:var(--hull);overflow-y:auto;padding:16px 18px 28px}
+.eyebrow{font:500 10px var(--f-mono);letter-spacing:.16em;color:var(--dim);text-transform:uppercase}
+.name{font:700 30px/1.1 var(--f-display);margin:4px 0 2px;color:var(--c,var(--ink));text-wrap:balance}
+.sub{font:500 13px var(--f-mono);color:var(--dim)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 4px}
+.chip{font:500 11px var(--f-display);border:1px solid var(--seam);padding:2px 8px;border-radius:2px;letter-spacing:.04em}
+.chip.c{border-color:var(--c);color:var(--c)}
+.grid4{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--seam);border:1px solid var(--seam);margin:12px 0}
+.grid4 div{background:var(--hull);padding:8px 10px}
+.grid4 dt{font:500 10px var(--f-mono);color:var(--dim);letter-spacing:.1em}
+.grid4 dd{margin:0;font:600 17px var(--f-display);font-variant-numeric:tabular-nums}
+.grid4 dd small{font:400 11px var(--f-mono);color:var(--dim);margin-left:3px}
+.grid4 .wide{grid-column:1/-1}.grid4 .wide dd{font:400 13px var(--f-body)}
+h2{font:600 12px var(--f-display);letter-spacing:.14em;color:var(--amber);margin:20px 0 8px;display:flex;align-items:center;gap:8px}
+h2::after{content:"";flex:1;height:1px;background:var(--seam)}
+p{margin:0 0 8px}
+.stat{display:grid;grid-template-columns:44px 1fr 28px;gap:8px;align-items:center;margin:5px 0;font-size:12px}
+.stat .t{height:6px;background:var(--plate);position:relative}
+.stat .t i{position:absolute;inset:0 auto 0 0;background:var(--c,var(--sonar))}
+.stat .n{font:500 12px var(--f-mono);text-align:right;font-variant-numeric:tabular-nums}
+ul.plain{list-style:none;margin:0;padding:0}
+ul.plain li{padding:5px 0 5px 14px;position:relative;border-bottom:1px dashed var(--seam)}
+ul.plain li::before{content:"";position:absolute;left:2px;top:14px;width:5px;height:5px;background:var(--c,var(--sonar))}
+.film{display:flex;gap:10px;align-items:baseline;padding:4px 0;border-bottom:1px dashed var(--seam)}
+.film .y{font:500 12px var(--f-mono);color:var(--amber);font-variant-numeric:tabular-nums}
+.film small{color:var(--dim);font-family:var(--f-mono)}
+.loc{display:block;width:100%;text-align:left;background:var(--plate);border:1px solid transparent;border-radius:3px;padding:7px 10px;margin:5px 0}
+.loc:hover{border-color:var(--sonar)}
+.loc b{font-weight:500}.loc small{display:block;color:var(--dim);line-height:1.45}
+.loc .co{font:400 10px var(--f-mono);color:var(--sonar);float:right}
+.act{width:100%;margin-top:16px;padding:9px;background:transparent;border:1px solid var(--amber);color:var(--amber);border-radius:3px;font:600 13px var(--f-display);letter-spacing:.08em}
+.act:hover{background:rgba(243,168,58,.12)}
+.fine{font-size:11px;color:var(--dim);margin-top:18px;line-height:1.5}
+
+select.tog{color:var(--amber);border-color:var(--amber);background:var(--hull);font-weight:600}
+#cap{display:none;position:absolute;left:50%;bottom:14px;transform:translateX(-50%);width:min(560px,calc(100% - 28px));background:rgba(11,29,38,.96);border:1px solid var(--seam);border-top:3px solid var(--c);padding:10px 14px 12px;z-index:2}
+#cap p{margin:4px 0 10px;font-size:14px}
+.cb{display:flex;gap:6px;flex-wrap:wrap}.cb button{background:var(--plate);border:1px solid var(--seam);border-radius:3px;padding:4px 10px;font-size:12px}.cb button:hover{border-color:var(--amber)}
+.ruler{position:relative;height:180px;border:1px solid var(--seam);border-bottom:2px solid var(--dim);background:#07161d;padding:0 8px}
+.ruler .ml{position:absolute;left:0;right:0;border-top:1px dashed var(--seam);height:0}
+.ruler .ml em{position:absolute;left:6px;bottom:2px;font:400 10px var(--f-mono);color:var(--dim);font-style:normal}
+.bars{position:absolute;inset:0 8px;display:flex;align-items:flex-end;gap:4px}
+.rb{flex:1;min-width:0;padding:0;border:0;border-radius:2px 2px 0 0;background:var(--c);opacity:.3;position:relative}
+.rb:hover{opacity:.7}.rb.on{opacity:1;box-shadow:0 0 14px var(--c)}
+.rb b{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font:600 12px var(--f-display);color:var(--c);white-space:nowrap;padding-bottom:3px}
+.film .tr{margin-left:auto;color:var(--sonar);font-size:12px;white-space:nowrap;text-decoration:none}.film .tr:hover{text-decoration:underline}
+.vids{display:grid;gap:6px}.vids a{display:block;background:var(--plate);border:1px solid var(--seam);border-left:3px solid var(--c);border-radius:3px;padding:8px 12px;text-decoration:none;color:var(--ink)}
+.vids a:hover{border-color:var(--c)}.vids b{font-weight:500;display:block}.vids small{color:var(--dim)}
+.myth{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px}
+.myth figure{margin:0;background:var(--plate);border:1px solid var(--seam);border-top:3px solid var(--c);border-radius:3px;overflow:hidden}
+.mfig{display:block;padding:0;border:0;background:#030a0e;aspect-ratio:4/3;width:100%;cursor:zoom-in}
+.mfig img{width:100%;height:100%;object-fit:cover;display:block;filter:sepia(.18) saturate(.9);transition:filter .3s}
+.mfig:hover img{filter:none}
+.myth figcaption{padding:6px 8px 8px;font-size:11.5px;line-height:1.4}.myth figcaption b{display:block;font-weight:500}
+.myth figcaption small{display:block;color:var(--dim);margin-top:2px}
+/* lore pile + orbit */
+#lore{position:absolute;inset:0;pointer-events:none;z-index:6;--cw:74px}
+#lore[hidden]{display:none}
+#lore .lc{position:absolute;left:0;top:0;width:var(--cw);height:calc(var(--cw)*.8);padding:4px;margin:0;border:0;border-radius:1px;background:#e9dfc6;
+  box-shadow:0 1px 0 rgba(255,255,255,.4) inset,0 8px 18px rgba(0,0,0,.6);pointer-events:auto;cursor:pointer;display:flex;flex-direction:column;
+  transition:transform .85s cubic-bezier(.2,.85,.25,1),width .85s cubic-bezier(.2,.85,.25,1),height .85s cubic-bezier(.2,.85,.25,1),opacity .5s;will-change:transform}
+#lore .lc img{flex:1;min-height:0;width:100%;object-fit:cover;display:block;filter:sepia(.3) contrast(1.05) brightness(.95);transition:filter .3s;pointer-events:none}
+#lore .lc span{display:none;font:500 10px/1.25 var(--f-body);color:#3b3122;padding:3px 1px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;max-height:0;opacity:0;transition:opacity .4s}
+
+#lore:not(.open) .lc:hover{filter:brightness(1.08)}
+#lore.open .lc:hover img{filter:none}
+#lore.open .lc:hover{box-shadow:0 0 0 2px var(--amber),0 10px 24px rgba(0,0,0,.7)}
+#lore.orbit .lc{transition:width .85s,height .85s,opacity .3s,box-shadow .2s}
+.lore-ring{position:absolute;border:1px dashed rgba(99,210,228,.22);border-radius:50%;opacity:0;transition:opacity .8s;pointer-events:none}
+#lore.open .lore-ring{opacity:1}
+.lore-tag{position:absolute;width:80px;text-align:center;background:none;border:0;padding:2px 0;font:500 10px/1.3 var(--f-mono);letter-spacing:.08em;color:var(--amber);pointer-events:auto;cursor:pointer;transition:opacity .4s}
+#lore.open .lore-tag{opacity:0;pointer-events:none}
+.lore-x{position:absolute;left:14px;top:14px;background:rgba(11,29,38,.88);border:1px solid var(--amber);border-radius:3px;padding:5px 11px;font:600 12px var(--f-display);color:var(--amber);pointer-events:auto;opacity:0;visibility:hidden;transition:opacity .4s}
+#lore.open .lore-x{opacity:1;visibility:visible}
+#stage.m3 .lore-x{top:auto;bottom:auto;left:auto;right:14px;top:56px}
+#lb{position:fixed;inset:0;background:rgba(3,10,14,.94);display:none;z-index:20;flex-direction:column;align-items:center;justify-content:center;padding:24px 64px;gap:12px}
+#lb.on{display:flex}#lbImg{max-width:min(1100px,100%);max-height:78vh;object-fit:contain;box-shadow:0 0 0 1px var(--seam),0 20px 60px rgba(0,0,0,.6)}
+#lbCap{max-width:760px;text-align:center;font-size:13px;color:var(--ink)}#lbCap small{display:block;color:var(--dim);font:400 11px var(--f-mono);margin-top:4px}#lbCap a{color:var(--sonar)}
+#lbX{position:absolute;top:14px;right:16px;background:transparent;border:1px solid var(--seam);border-radius:3px;color:var(--dim);padding:4px 10px}
+.lbnav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:64px;background:rgba(11,29,38,.7);border:1px solid var(--seam);border-radius:3px;color:var(--ink);font:400 26px var(--f-mono)}
+#lbPrev{left:12px}#lbNext{right:12px}.lbnav:hover{border-color:var(--amber);color:var(--amber)}
+/* battle overlay */
+#vs{position:fixed;inset:0;background:rgba(3,10,14,.86);display:none;z-index:10;overflow:auto;padding:24px 16px}
+#vs.on{display:block}
+.vsbox{max-width:980px;margin:0 auto;background:var(--hull);border:1px solid var(--seam);padding:18px 20px 22px}
+.vshead{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.vshead h3{font:700 18px var(--f-display);letter-spacing:.1em;margin:0}
+.vshead button{margin-left:auto;background:none;border:1px solid var(--seam);border-radius:3px;padding:4px 12px}
+.vsgrid{display:grid;grid-template-columns:1fr 320px 1fr;gap:18px;align-items:start}
+.side select{width:100%;background:var(--plate);border:1px solid var(--seam);padding:7px 8px;border-radius:3px;margin-bottom:10px}
+.side .big{font:700 24px/1.15 var(--f-display);color:var(--c)}
+.side .score{font:600 40px/1 var(--f-display);font-variant-numeric:tabular-nums;margin:8px 0 2px}
+.side.r{text-align:right}
+.side ul{font-size:12px;text-align:left;margin-top:10px}
+#radar{width:100%;aspect-ratio:1;display:block}
+.cmp{display:grid;grid-template-columns:1fr 46px 1fr;gap:8px;align-items:center;margin:6px 0;font-size:12px}
+.cmp .l,.cmp .r{height:8px;background:var(--plate);position:relative}
+.cmp .l i{position:absolute;inset:0 0 0 auto}.cmp .r i{position:absolute;inset:0 auto 0 0}
+.cmp .k{text-align:center;color:var(--dim)}
+.odds{height:14px;display:flex;margin:14px 0 6px;border:1px solid var(--seam)}
+.odds i{display:block;height:100%}
+.verdict{background:var(--plate);border-left:3px solid var(--amber);padding:10px 14px;margin-top:10px}
+@media (max-width:980px){
+  body{overflow:auto;display:block}
+  main{display:block}
+  #roster{display:flex;overflow-x:auto;border-right:0;border-bottom:1px solid var(--seam)}
+  .rh{display:none}.ri{min-width:150px}
+  #stage{height:440px}
+  #panel{border-left:0;border-top:1px solid var(--seam)}
+  .vsgrid{grid-template-columns:1fr}.side.r{text-align:left}
+}
+/* 3D view */
+#ghost,#g3{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity .7s ease;pointer-events:none}
+#g3{touch-action:none}
+#stage.m3 #ghost{opacity:1}
+#stage.m3 #g3.on{opacity:1;pointer-events:auto;cursor:grab}
+#stage.m3 #globe{pointer-events:none}
+#stage.m3 .legend,#stage.m3 .hud,#stage.m3 .zoom{opacity:0;pointer-events:none}
+.legend,.hud,.zoom{transition:opacity .4s}
+#g3ui{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .5s .2s}
+#stage.m3 #g3ui{opacity:1}
+#stage.m3 #g3ui>*{pointer-events:auto}
+#g3ui .g3hint{pointer-events:none!important}
+.g3top{position:absolute;right:12px;top:12px;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:calc(100% - 220px)}
+.g3top button{background:rgba(11,29,38,.88);border:1px solid var(--seam);border-radius:3px;padding:6px 12px;font:600 12px var(--f-display);letter-spacing:.06em;color:var(--ink)}
+.g3top button[aria-pressed="true"]{border-color:var(--sonar);color:var(--sonar)}
+#g3acts{display:contents}
+.g3top .fire{border-color:#7fe6ff;color:#061219;background:#7fe6ff;box-shadow:0 0 16px rgba(127,230,255,.45)}
+.g3top .fire:disabled{opacity:.5;cursor:default;box-shadow:none}
+.g3var{display:inline-flex;gap:0;border:1px solid var(--seam);border-radius:3px;overflow:hidden}.g3var button{border:0!important;border-radius:0!important}
+.g3var button[aria-pressed="true"]{background:var(--amber)!important;color:var(--abyss)!important}
+.g3zoom{position:absolute;right:12px;bottom:40px;display:flex;flex-direction:column;gap:4px}.g3zoom button{width:32px;height:32px;background:rgba(11,29,38,.88);border:1px solid var(--seam);border-radius:3px;font:500 16px var(--f-mono)}
+#vsArena{position:relative;height:min(50vh,460px);margin:0 0 16px;border:1px solid var(--seam);background:#03090d;overflow:hidden;touch-action:none}
+#vsLoad{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);font:500 12px var(--f-mono);color:var(--sonar);pointer-events:none;z-index:2;white-space:nowrap}
+#vsArena .vh{position:absolute;right:10px;bottom:8px;font:400 10px var(--f-mono);color:var(--dim);pointer-events:none;z-index:2}
+.g3card{position:absolute;left:14px;bottom:14px;width:min(420px,calc(100% - 28px));background:rgba(6,18,25,.82);border:1px solid var(--seam);border-left:3px solid var(--c,#e8553d);padding:10px 14px 12px;backdrop-filter:blur(4px)}
+.g3name{font:700 20px/1.2 var(--f-display);color:var(--c,#ff7a62);filter:brightness(1.15);margin:2px 0 4px}
+.g3card p{font-size:12.5px;color:var(--ink);margin:0 0 8px}
+#g3locs{display:flex;gap:5px;flex-wrap:wrap}
+#g3locs button{background:var(--plate);border:1px solid var(--seam);border-radius:3px;padding:3px 9px;font-size:12px}
+#g3locs button[aria-pressed="true"]{border-color:var(--c);color:var(--c)}
+#g3locs button[data-a][aria-pressed="true"]{border-color:var(--sonar);color:var(--sonar)}
+.g3hint{position:absolute;right:14px;bottom:14px;font:400 11px var(--f-mono);color:var(--dim)}
+#g3load{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(320px,80%);text-align:center;display:none}
+#g3load b{display:block;font:500 12px var(--f-mono);color:var(--sonar);margin-bottom:8px;letter-spacing:.08em}
+#g3load span{display:block;height:3px;background:var(--plate)}#g3load i{display:block;height:100%;width:0;background:var(--sonar);transition:width .3s}
+#g3load.err b{color:var(--alert)}#g3load.err i{background:var(--alert)}
+#miniBack{position:absolute;left:18px;top:18px;border-radius:50%;background:transparent;border:1px dashed rgba(99,210,228,.35);padding:0}
+#miniBack:hover{border-color:var(--amber)}
+#miniBack::after{content:"返回地球";position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:6px;font:500 10px var(--f-mono);color:var(--dim);white-space:nowrap;letter-spacing:.1em}
+.b3d{font:600 9px var(--f-mono);font-style:normal;color:var(--abyss);background:var(--sonar);border-radius:2px;padding:0 4px;margin-left:6px;vertical-align:2px;letter-spacing:.04em}
+.vt{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px;margin:10px 0 6px}
+.vt button{text-align:left;background:var(--plate);border:1px solid var(--seam);border-radius:3px;padding:6px 10px;line-height:1.3}
+.vt button b{display:block;font:600 12px var(--f-display);letter-spacing:.03em}.vt button small{font:400 10px var(--f-mono);color:var(--dim)}
+.vt button[aria-selected="true"]{border-color:var(--c);box-shadow:inset 0 -2px 0 var(--c)}.vt button[aria-selected="true"] b{color:var(--c)}
+.mf{border-left:2px solid var(--seam);padding:4px 0 6px 10px;margin:8px 0}.mf p{margin:3px 0;font-size:12.5px}.mf small,.mfd{color:var(--dim);font:400 11px var(--f-mono)}
+.go3d{width:100%;margin:12px 0 2px;padding:10px;background:linear-gradient(90deg,rgba(232,85,61,.18),rgba(127,230,255,.14));border:1px solid #e8553d;border-radius:3px;color:var(--ink);font:600 13px var(--f-display);letter-spacing:.06em}
+.go3d:hover{border-color:#7fe6ff}
+@media (max-width:980px){.g3card p{display:none}.g3hint{display:none}.g3top{max-width:calc(100% - 130px)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>泰坦监测站<small>TITAN WATCH / 粉丝自制</small></h1>
+  <div class="bar">
+    <button class="tog" id="tTitan" aria-pressed="true"><i></i>泰坦出没点</button>
+    <button class="tog" id="tPost" aria-pressed="true"><i style="border-radius:0"></i>Monarch 前哨</button>
+    <button class="tog hollow" id="tHollow" aria-pressed="false"><i style="background:none;border:2px solid currentColor"></i>Hollow Earth 地心视图</button>
+    <select id="story" class="tog" aria-label="剧情回放"></select>
+    <button class="tog vs" id="tVs">战力对比</button>
+    <button class="tog bgm" id="tBgm" aria-pressed="false" aria-label="背景音乐开关">♪ BGM 关</button>
+  </div>
+</header>
+
+<div id="gate" role="dialog" aria-label="Titan Alert">
+ <div class="wrap">
+  <canvas id="gFog" aria-hidden="true"></canvas>
+  <canvas id="gNoise" aria-hidden="true"></canvas>
+  <div class="track"></div>
+  <div class="vf" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+  <div class="osd tl" aria-hidden="true"><div class="rec"><b></b>REC</div><div class="dim" id="gTc">00:00:00:00</div></div>
+  <div class="osd tr" aria-hidden="true"><div>MONARCH ARCHIVE</div><div class="dim">TAPE 07 · CAM 04</div></div>
+  <div class="osd bl" aria-hidden="true"><div>SEISMIC <span id="gMag">M 0.0</span></div><div class="dim">BIO-ACOUSTIC SIGNAL: UNKNOWN</div></div>
+  <div class="osd br" aria-hidden="true"><div id="gDate">NOV 03 1954</div><div class="dim">SP ▶ PLAY</div></div>
+  <canvas class="seis" id="gSeis" aria-hidden="true"></canvas>
+  <div class="center">
+   <div class="warn">⚠ CLASSIFIED ⚠</div>
+   <div class="gt"><span>Titan</span><span>Alert</span></div>
+   <button id="gateGo">ENTER</button>
+   <button id="gateMute">MUTE</button>
+  </div>
+  <div class="scan" aria-hidden="true"></div>
+ </div>
+</div><main>
+  <nav id="roster" aria-label="泰坦名录"></nav>
+  <section id="stage">
+    <canvas id="ghost" aria-hidden="true"></canvas>
+    <canvas id="g3" aria-label="怪兽 3D 模型，可拖拽旋转"></canvas>
+    <canvas id="globe" aria-label="可拖拽的地球，标记为泰坦出没点"></canvas>
+    <div class="legend">
+      <span><i style="border-radius:50%;background:var(--sonar)"></i>泰坦出没点（颜色 = 个体）</span>
+      <span><i style="border:1.5px solid var(--ink)"></i>Monarch 前哨站</span>
+      <span><i style="border-radius:50%;border:2px solid var(--amber)"></i>Hollow Earth 入口</span>
+    </div>
+    <div class="hud" id="hud"></div>
+    <div class="zoom"><button id="zin" aria-label="放大">+</button><button id="zout" aria-label="缩小">−</button></div>
+    <div id="cap"></div>
+    <div id="tip"></div>
+    <div id="pick"></div>
+    <div id="g3ui" aria-hidden="true">
+      <div class="g3top"><span id="g3acts"></span><button id="g3rot" aria-pressed="false">自动旋转</button><button id="g3close">返回地球 ✕</button></div>
+      <div class="g3zoom"><button id="g3zin" aria-label="放大模型">+</button><button id="g3zout" aria-label="缩小模型">−</button></div>
+      <div class="g3card" id="g3card"><div class="eyebrow" id="g3eb"></div><div class="g3name" id="g3name"></div><p id="g3note"></p><div id="g3locs"></div></div>
+      <div class="g3hint">拖拽旋转 · 滚轮缩放 · 点左上角地球返回</div>
+      <div id="g3load"><b></b><span><i></i></span></div>
+      <button id="miniBack" aria-label="返回地球视图"></button>
+    </div>
+    <div id="lore" hidden></div>
+    <div id="lb" role="dialog" aria-modal="true" aria-label="神话原画"><button id="lbX">关闭 ✕</button><button class="lbnav" id="lbPrev" aria-label="上一张">‹</button><img id="lbImg" alt=""><button class="lbnav" id="lbNext" aria-label="下一张">›</button><div id="lbCap"></div></div>
+  </section>
+  <aside id="panel"></aside>
+</main>
+<div id="vs" role="dialog" aria-label="战力对比"><div class="vsbox">
+  <div class="vshead"><h3>战力对比</h3><span class="eyebrow">六维为粉丝估算，非官方数据</span><button id="vsClose">关闭</button></div>
+  <div id="vsArena"><div id="vsLoad"></div><div class="vh">按真实身高缩放 · 拖拽旋转 · 双指/滚轮缩放</div></div>
+  <div class="vsgrid">
+    <div class="side" id="sA"></div>
+    <div><canvas id="radar"></canvas></div>
+    <div class="side r" id="sB"></div>
+  </div>
+  <div id="cmp"></div>
+</div></div>
+<script src="data.js"></script>
+<script src="data2.js"></script>
+<script>
+(function(){
+"use strict";
+var D=window.TITAN_DATA, $=function(s){return document.getElementById(s)}, RAD=Math.PI/180;
+var esc=function(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
+var reduce=matchMedia("(prefers-reduced-motion:reduce)").matches;
+var STAT=[["power","力量"],["defense","防御"],["speed","速度"],["energy","能量"],["intelligence","智力"],["endurance","耐力"]];
+var W8={power:.25,defense:.2,energy:.2,endurance:.15,speed:.1,intelligence:.1};
+var byId={};D.titans.forEach(function(t){byId[t.id]=t});
+/* ---------- TW bridge: 给 Lab 模块（tw-*.js）用的接口，见 Lab 的 INTEGRATION.md ---------- */
+var TWH={};
+var TW=window.TW={
+  data:D,byId:byId,reduce:reduce,vsHas3D:true,filters:{},
+  on:function(e,f){(TWH[e]=TWH[e]||[]).push(f)},
+  emit:function(e,d){(TWH[e]||[]).slice().forEach(function(f){try{f(d||{})}catch(x){console.error("[TW]",e,x)}})},
+  caps:function(id){return{model:hasModel(id),skill:!!(MODELS[id]&&MODELS[id].acts),story:STORY.some(function(s){return s.steps.some(function(p){return p[3]===id})})}},
+  skill:function(id){var m=MODELS[id];return m&&m.acts?m.acts[0][0]:null},
+  ids:function(){return D.titans.filter(function(t){return!VARIANT[t.id]&&!t.monarch_file}).map(function(t){return t.id})},
+  current:function(){return S.sel},
+  select:function(id,loc){select(id,loc)},flyTo:function(a,b){flyTo(a,b)},
+  setFilter:function(k,fn){if(fn)TW.filters[k]=fn;else delete TW.filters[k]},
+  vec:vec,proj:function(lat,lon){var p=proj(vec(lat,lon));return{x:p[0],y:p[1],z:p[2]}},
+  toolbar:document.querySelector("header .bar"),roster:$("roster"),panel:$("panel"),stage:$("stage"),vsArena:$("vsArena")
+};
+
+/* ---------- rough continents (lon,lat). stylised dot-matrix land, not survey data ---------- */
+var LAND=[
+[-168,66,-162,70,-156,71,-141,70,-128,70,-115,68,-108,68,-95,72,-85,70,-82,66,-88,64,-94,60,-93,57,-85,55,-82,52,-79,51,-79,55,-77,57,-78,62,-73,62,-65,60,-62,57,-56,53,-56,50,-60,47,-65,45,-70,43,-71,41,-74,40,-76,35,-81,31,-80,25,-82,27,-83,30,-90,29,-94,29,-97,26,-98,22,-96,19,-92,18,-90,21,-87,21,-88,16,-84,15,-83,10,-80,9,-78,8,-80,7,-84,9,-86,12,-92,14,-96,15,-105,19,-106,23,-112,28,-110,23,-112,27,-115,31,-117,33,-121,35,-124,40,-124,47,-128,51,-134,57,-140,60,-148,60,-152,58,-158,56,-164,54,-162,58,-166,62,-165,64],
+[-73,78,-60,82,-35,83,-20,81,-20,74,-25,70,-40,65,-44,60,-50,62,-54,67,-58,74,-68,76],
+[-80,73,-70,71,-62,66,-66,62,-75,64,-80,68,-88,71],[-120,75,-95,76,-80,76,-65,82,-90,82,-110,78],
+[-78,8,-72,12,-62,11,-52,5,-50,0,-44,-2,-35,-6,-39,-14,-41,-22,-48,-27,-53,-34,-58,-38,-63,-41,-66,-46,-69,-52,-72,-54,-75,-50,-73,-42,-73,-37,-71,-30,-70,-18,-76,-14,-81,-6,-80,-2,-78,2],
+[-17,21,-16,12,-13,8,-8,4,4,6,9,4,9,-1,13,-8,12,-17,15,-27,18,-34,22,-34,27,-33,32,-28,35,-23,40,-15,39,-6,42,-1,48,5,51,11,44,11,42,14,38,18,35,27,32,31,25,32,20,31,15,32,10,34,10,37,0,36,-6,35,-10,31,-13,27],
+[44,-25,47,-25,50,-16,49,-12,44,-17],
+[-9,37,-9,43,-2,43,-1,46,-5,48,2,51,5,53,8,54,8,57,11,56,12,54,20,54,21,57,24,59,29,60,22,60,21,64,24,66,18,63,17,60,13,56,11,59,6,58,5,62,12,66,15,69,25,71,31,70,40,67,44,66,44,68,55,68,68,68,70,73,80,73,88,75,100,76,105,78,113,74,130,71,140,73,150,71,160,70,170,70,180,69,180,65,178,64,170,60,163,60,162,55,156,51,156,57,160,61,155,59,142,59,135,54,140,53,141,48,135,43,130,42,128,40,129,35,126,34,126,38,121,39,118,39,122,37,119,35,122,31,120,26,116,23,110,21,108,21,106,18,109,13,105,9,100,13,100,8,104,1,101,3,98,8,98,16,94,16,91,22,87,21,80,15,80,10,77,8,73,16,72,21,67,24,61,25,57,26,56,27,50,30,48,30,51,25,56,24,60,22,55,17,45,13,43,16,39,21,35,28,35,36,36,36,30,36,27,37,26,40,29,41,24,40,23,36,21,38,19,42,14,45,12,44,18,40,16,38,12,42,9,44,3,43,0,39,-2,37,-6,36],
+[-5,50,1,51,0,54,-2,56,-3,58,-6,58,-5,54,-3,53,-5,52],[-10,52,-6,52,-6,55,-10,54],[-24,65,-14,65,-15,66.5,-22,66.5],
+[130,31,132,34,136,34,140,35,142,39,141,41,140,41,139,38,136,37,133,35.5,130,34],[140,42,145,43,142,45.5,141,43],
+[120,14,122,18,124,13,126,8,124,6,122,10],[95,5,98,4,104,-3,106,-6,102,-4,97,2],[106,-6,114,-7,114,-8.5,106,-7.5],
+[109,1,113,3,117,7,119,1,116,-4,110,-3],[119,-5,120,1,125,1,123,-4],[131,-1,138,-2,145,-5,150,-10,142,-9,138,-8,133,-4],
+[114,-22,114,-34,118,-35,124,-33,131,-32,135,-35,140,-38,146,-39,150,-37,153,-30,153,-25,146,-19,142,-11,141,-17,136,-12,130,-12,126,-14,122,-18],
+[145,-41,148,-41,147,-43.5,145.5,-43],[173,-35,178,-38,175,-41,173,-41,174,-39],[172,-41,174,-42,170,-46,166,-46,168,-44],
+[80,9.5,82,7,80.5,6,79.8,8],[-85,22,-80,23,-74,20,-78,20],[-74,19.5,-68,18.5,-71,17.8,-74,18.3],[-65,-64,-57,-64,-60,-70,-70,-70]
+];
+var SEA=[[28,41.5,30,46,37,46,41,42,36,41.5],[47,45,53,46,54,38,50,37]];
+function inPoly(p,x,y){var c=false;for(var i=0,j=p.length-2;i<p.length;j=i,i+=2){var xi=p[i],yi=p[i+1],xj=p[j],yj=p[j+1];if((yi>y)!==(yj>y)&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)c=!c}return c}
+function isLand(lon,lat){
+  if(lat<=-72||(lat<=-67&&lon>40&&lon<160))return true;
+  for(var s=0;s<SEA.length;s++)if(inPoly(SEA[s],lon,lat))return false;
+  for(var i=0;i<LAND.length;i++)if(inPoly(LAND[i],lon,lat))return true;return false}
+function vec(lat,lon){var a=lat*RAD,b=lon*RAD,c=Math.cos(a);return[c*Math.sin(b),Math.sin(a),c*Math.cos(b)]}
+var dots=[],jdots=[];
+var JP=[[141.9,45.5,142.3,45.3,143.2,44.6,144.3,44.1,145.3,44.3,145.4,43.3,144.4,42.9,143.3,42.0,141.9,42.6,141.0,42.3,140.3,41.5,139.9,41.6,140.1,42.2,139.8,42.6,140.5,43.2,141.4,43.3,141.6,44.3,141.7,45.3],
+[140.9,41.5,141.5,40.6,141.9,39.6,141.6,38.4,141.0,38.2,140.9,37.0,140.6,36.3,140.9,35.7,140.4,35.1,139.85,35.0,139.75,35.6,139.9,35.6,139.6,35.3,139.3,35.3,138.8,34.6,138.2,34.6,137.3,34.6,136.8,34.3,136.3,34.0,135.8,33.5,135.1,33.9,135.3,34.6,134.2,34.7,133.0,34.4,132.2,33.9,131.0,34.0,130.9,34.3,131.4,34.5,132.6,35.4,133.4,35.5,134.5,35.6,135.5,35.6,136.0,36.0,136.7,36.9,137.3,36.8,136.9,37.3,137.4,37.5,138.6,37.8,139.4,38.4,139.9,39.1,140.0,40.2,139.9,40.6,140.3,41.2],
+[132.6,33.2,133.0,32.7,134.2,33.3,134.7,33.8,134.6,34.2,133.5,34.4,132.9,34.1,132.4,33.8],[129.8,33.4,130.4,33.9,131.0,33.9,131.7,33.6,131.9,32.8,131.5,31.6,131.1,31.0,130.6,31.0,130.2,31.3,130.1,32.1,129.7,32.6,129.6,33.2],
+[127.65,26.08,128.0,26.5,128.33,26.85,128.15,26.9,127.75,26.45],[138.3,38.3,138.55,38.25,138.5,37.85,138.2,37.8],[139.3,34.8,139.45,34.75,139.4,34.67,139.35,34.7],[129.2,34.7,129.5,34.65,129.3,34.1]];
+for(var jla=24;jla<=46;jla+=.11){var jst=.11/Math.cos(jla*RAD);for(var jlo=122;jlo<=146;jlo+=jst){for(var jp=0;jp<JP.length;jp++)if(inPoly(JP[jp],jlo,jla)){jdots.push(vec(jla,jlo));break}}}
+function nearJapan(){var lo=((S.lon%360)+540)%360-180;return S.lat>22&&S.lat<48&&lo>118&&lo<152}
+for(var la=-86;la<=84;la+=1.8){var st=1.8/Math.max(.12,Math.cos(la*RAD));for(var lo=-180;lo<180;lo+=st)if(isLand(lo,la))dots.push(vec(la,lo))}
+
+/* ---------- markers ---------- */
+var marks=[];
+D.titans.forEach(function(t){if(t.monarch_file)return;(t.locations||[]).forEach(function(l){marks.push({k:"titan",t:t,l:l,v:vec(l.lat,l.lon),hollow:l.layer==="hollow",label:t.name_cn+" · "+l.name,note:l.note,color:t.color})})});
+(D.outposts||[]).forEach(function(o){marks.push({k:"post",l:o,v:vec(o.lat,o.lon),label:o.id+(o.name?" · "+o.name:""),note:o.note,color:"#dcebee"})});
+((D.hollowEarth||{}).entrances||[]).forEach(function(e){marks.push({k:"gate",l:e,v:vec(e.lat,e.lon),label:"入口 · "+e.name,note:e.note,color:"#f3a83a"})});
+
+/* ---------- globe ---------- */
+var cv=$("globe"),g=cv.getContext("2d"),S={lon:140,lat:18,zoom:1,sel:null,showT:true,showP:true,hollow:false,auto:!reduce,fly:null,panel:"titan"};
+var Wd=0,Ht=0,R=0,cx=0,cy=0,INNER=.56;
+function fit(){var r=cv.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2);Wd=r.width;Ht=r.height;cv.width=Wd*d;cv.height=Ht*d;g.setTransform(d,0,0,d,0,0);cx=Wd/2;cy=Ht/2}
+function proj(v,rad){var a=S.lon*RAD,b=S.lat*RAD,ca=Math.cos(a),sa=Math.sin(a);
+  var x=v[0]*ca-v[2]*sa,z=v[0]*sa+v[2]*ca,y=v[1],cb=Math.cos(b),sb=Math.sin(b);
+  var y2=y*cb-z*sb,z2=y*sb+z*cb,r=R*(rad||1);return[cx+x*r,cy-y2*r,z2]}
+function visible(m){if(m.k==="titan"&&m.t){for(var fk in TW.filters)if(!TW.filters[fk](m.t))return false}if(m.k==="titan"){if(!S.showT)return false;if(m.hollow&&!S.hollow)return false}
+  if(m.k==="post"&&!S.showP)return false;if(m.k==="gate"&&!S.hollow)return false;return true}
+function jbox(v){var la=Math.asin(v[1])/RAD,lo=Math.atan2(v[0],v[2])/RAD;return la>23.5&&la<46.5&&lo>121.5&&lo<146.5}
+function draw(ts){
+  var Rf=Math.min(Wd,Ht)*.42*S.zoom,mk=G3.k,ek=mk*mk*(3-2*mk);if(mk>0){var Rm=miniLayout();R=Rf+(Rm-Rf)*ek;cx=Wd/2+(18+Rm-Wd/2)*ek;cy=Ht/2+(18+Rm-Ht/2)*ek}else{R=Rf;cx=Wd/2;cy=Ht/2}g.clearRect(0,0,Wd,Ht);
+  var gl=g.createRadialGradient(cx,cy,R*.92,cx,cy,R*1.18);gl.addColorStop(0,S.hollow?"rgba(243,168,58,.20)":"rgba(99,210,228,.22)");gl.addColorStop(1,"rgba(0,0,0,0)");
+  g.fillStyle=gl;g.beginPath();g.arc(cx,cy,R*1.18,0,7);g.fill();
+  var bg=g.createRadialGradient(cx-R*.3,cy-R*.35,R*.1,cx,cy,R);bg.addColorStop(0,S.hollow?"#14262a":"#12333f");bg.addColorStop(1,"#071820");
+  g.fillStyle=bg;g.beginPath();g.arc(cx,cy,R,0,7);g.fill();
+  g.strokeStyle=S.hollow?"rgba(243,168,58,.5)":"rgba(99,210,228,.55)";g.lineWidth=1;g.stroke();
+  // graticule
+  g.strokeStyle="rgba(99,210,228,.10)";g.lineWidth=1;var i,j,p,first;
+  for(i=-60;i<=60;i+=30){g.beginPath();first=true;for(j=-180;j<=180;j+=6){p=proj(vec(i,j));if(p[2]>0){first?g.moveTo(p[0],p[1]):g.lineTo(p[0],p[1]);first=false}else first=true}g.stroke()}
+  for(j=-180;j<180;j+=30){g.beginPath();first=true;for(i=-90;i<=90;i+=6){p=proj(vec(i,j));if(p[2]>0){first?g.moveTo(p[0],p[1]):g.lineTo(p[0],p[1]);first=false}else first=true}g.stroke()}
+  // land
+  var ds=Math.max(1.1,R/190);
+  if(S.hollow){g.fillStyle="rgba(99,210,228,.13)";for(i=0;i<dots.length;i++){p=proj(dots[i]);if(p[2]<=0)g.fillRect(p[0]-ds/2,p[1]-ds/2,ds,ds)}}
+  var fine=S.zoom>2.2&&!S.hollow;
+  for(i=0;i<dots.length;i++){p=proj(dots[i]);if(p[2]>0){if(fine&&p[0]>-50&&p[0]<Wd+50&&p[1]>-50&&p[1]<Ht+50&&jbox(dots[i]))continue;g.fillStyle="rgba(120,220,236,"+((S.hollow?.16:.3)+.5*p[2]*(S.hollow?.5:1)).toFixed(2)+")";g.fillRect(p[0]-ds/2,p[1]-ds/2,ds,ds)}}
+  if(fine){var dj=Math.max(1,R/2600),ja=Math.min(1,(S.zoom-2.2)/1.5);for(i=0;i<jdots.length;i++){p=proj(jdots[i]);if(p[2]>0&&p[0]>-4&&p[0]<Wd+4&&p[1]>-4&&p[1]<Ht+4){g.fillStyle="rgba(150,232,244,"+(.35+.55*ja*p[2]).toFixed(2)+")";g.fillRect(p[0]-dj/2,p[1]-dj/2,dj,dj)}}
+    if(S.zoom>5){g.font="500 11px 'IBM Plex Mono',monospace";g.fillStyle="rgba(220,235,238,.55)";[["TOKYO",35.68,139.76],["OSAKA",34.69,135.5],["NAGOYA",35.18,136.9],["SAGAMI BAY",35.05,139.35],["FUKUOKA",33.59,130.4],["SAPPORO",43.06,141.35],["FUJI",35.36,138.73]].forEach(function(c){var q=proj(vec(c[1],c[2]));if(q[2]>0)g.fillText(c[0],q[0]+6,q[1]-6)})}}
+  // hollow earth inner shell
+  if(S.hollow){
+    var ig=g.createRadialGradient(cx,cy,0,cx,cy,R*INNER);ig.addColorStop(0,"rgba(255,214,140,.55)");ig.addColorStop(.25,"rgba(243,168,58,.22)");ig.addColorStop(1,"rgba(243,168,58,.04)");
+    g.fillStyle=ig;g.beginPath();g.arc(cx,cy,R*INNER,0,7);g.fill();g.strokeStyle="rgba(243,168,58,.7)";g.setLineDash([4,5]);g.stroke();g.setLineDash([]);
+    g.strokeStyle="rgba(243,168,58,.16)";
+    for(i=-60;i<=60;i+=30){g.beginPath();for(j=-180;j<=180;j+=8){p=proj(vec(i,j),INNER);j===-180?g.moveTo(p[0],p[1]):g.lineTo(p[0],p[1])}g.stroke()}
+    for(j=0;j<180;j+=30){g.beginPath();for(i=0;i<=360;i+=8){p=proj(vec(i<=180?i-90:270-i,i<=180?j:j-180),INNER);i===0?g.moveTo(p[0],p[1]):g.lineTo(p[0],p[1])}g.stroke()}
+    g.fillStyle="rgba(255,226,170,.9)";g.font="500 10px 'IBM Plex Mono',monospace";g.textAlign="center";g.fillText("HOLLOW EARTH",cx,cy+R*INNER+14);g.textAlign="left";
+  }
+  // markers
+  var pulse=reduce?0.5:(ts/1400)%1;
+  marks.forEach(function(m){m.s=null;if(!visible(m))return;
+    var deep=m.hollow||(m.k==="gate");var q=proj(m.v);
+    if(m.k==="gate"){var q2=proj(m.v,INNER);
+      if(q[2]>0){g.strokeStyle="rgba(243,168,58,.55)";g.setLineDash([2,3]);g.beginPath();g.moveTo(q[0],q[1]);g.lineTo(q2[0],q2[1]);g.stroke();g.setLineDash([])}
+      if(q[2]<=0)return;g.strokeStyle="#f3a83a";g.lineWidth=2;g.beginPath();g.arc(q[0],q[1],5,0,7);g.stroke();g.lineWidth=1;m.s=q;return}
+    if(m.hollow){q=proj(m.v,INNER)}else if(q[2]<=0)return;
+    var on=S.sel&&m.t&&m.t.id===S.sel;m.s=q;
+    if(m.k==="post"){g.strokeStyle=m.color;g.lineWidth=1.5;g.strokeRect(q[0]-3.5,q[1]-3.5,7,7);g.lineWidth=1;return}
+    var rr=on?6:3.6;
+    if(on){g.strokeStyle=m.color;g.globalAlpha=1-pulse;g.beginPath();g.arc(q[0],q[1],rr+pulse*16,0,7);g.stroke();g.globalAlpha=1}
+    g.fillStyle=m.color;g.globalAlpha=(S.sel&&!on)?.55:1;g.beginPath();g.arc(q[0],q[1],rr,0,7);g.fill();g.globalAlpha=1;
+    if(m.hollow){g.strokeStyle="#f3a83a";g.beginPath();g.arc(q[0],q[1],rr+3,0,7);g.stroke()}
+    if(on&&G3.k<.3){g.fillStyle="#dcebee";g.font="500 11px 'Noto Sans SC',sans-serif";g.fillText(m.l.name,q[0]+10,q[1]+4)}
+  });
+  drawStory(ts);
+  TW.emit("draw",{ctx:g,ts:ts,w:Wd,h:Ht,R:R,cx:cx,cy:cy,proj:TW.proj});
+  if(G3.k<.5)$("hud").innerHTML="视角 <b>"+fmtLL(S.lat,norm(S.lon))+"</b><br>拖拽旋转 · 滚轮缩放 · 点击标记查看档案";
+}
+function norm(l){l=((l+180)%360+360)%360-180;return l}
+function fmtLL(la,lo){return Math.abs(la).toFixed(1)+"°"+(la>=0?"N":"S")+" "+Math.abs(lo).toFixed(1)+"°"+(lo>=0?"E":"W")}
+function loop(ts){
+  if(S.fly){var f=S.fly,k=Math.min(1,(ts-f.t0)/700);if(!f.t0){f.t0=ts;k=0}var e=1-Math.pow(1-k,3);S.lon=f.a+f.da*e;S.lat=f.b+f.db*e;if(k>=1)S.fly=null}
+  else if(S.auto&&!dragging)S.lon+=.035;
+  if(S.zoom>zMax())S.zoom+=(zMax()-S.zoom)*.08;
+  tick3(ts);draw(ts);requestAnimationFrame(loop)}
+function flyTo(lat,lon){S.auto=false;var da=norm(lon-S.lon);if(reduce){S.lon+=da;S.lat=lat;return}S.fly={a:S.lon,da:da,b:S.lat,db:Math.max(-70,Math.min(70,lat))-S.lat,t0:0}}
+var dragging=false,px=0,py=0,moved=0;
+cv.addEventListener("pointerdown",function(e){dragging=true;moved=0;px=e.clientX;py=e.clientY;cv.setPointerCapture(e.pointerId);cv.classList.add("drag");$("pick").style.display="none"});
+cv.addEventListener("pointermove",function(e){
+  if(dragging){var dx=e.clientX-px,dy=e.clientY-py;moved+=Math.abs(dx)+Math.abs(dy);px=e.clientX;py=e.clientY;S.fly=null;if(moved>4)S.auto=false;
+    var k=57/R;S.lon-=dx*k;S.lat=Math.max(-85,Math.min(85,S.lat+dy*k));$("tip").style.display="none";return}
+  var h=hits(e),tip=$("tip");if(!h.length){tip.style.display="none";cv.style.cursor="grab";return}
+  cv.style.cursor="pointer";tip.innerHTML=h.slice(0,4).map(function(m){return"<b style='color:"+m.color+"'>"+esc(m.label)+"</b><br>"+esc(m.note||"")}).join("<hr style='border:0;border-top:1px solid #1f4350;margin:4px 0'>")+(h.length>4?"<br>… 共 "+h.length+" 项":"");
+  place(tip,e)});
+cv.addEventListener("pointerup",function(e){dragging=false;cv.classList.remove("drag");if(moved>4)return;var h=hits(e);if(!h.length)return;
+  if(h.length===1)return choose(h[0]);var pk=$("pick");pk.innerHTML="<div>此处有 "+h.length+" 项记录</div>";
+  h.forEach(function(m){var b=document.createElement("button");b.innerHTML="<span style='color:"+m.color+"'>●</span> "+esc(m.label);b.onclick=function(){pk.style.display="none";choose(m)};pk.appendChild(b)});place(pk,e)});
+cv.addEventListener("pointerleave",function(){$("tip").style.display="none"});
+cv.addEventListener("wheel",function(e){e.preventDefault();zoom(Math.exp(-e.deltaY*(e.ctrlKey?.014:.0022)))},{passive:false});
+function zMax(){return nearJapan()?28:4}
+function zoom(f){S.zoom=Math.max(.7,Math.min(zMax(),S.zoom*f))}
+var gpd=0;cv.addEventListener("touchstart",function(e){if(e.touches.length===2)gpd=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY)},{passive:true});
+cv.addEventListener("touchmove",function(e){if(e.touches.length===2&&gpd){var d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);zoom(Math.pow(d/gpd,1.5));gpd=d;e.preventDefault()}},{passive:false});
+$("zin").onclick=function(){zoom(1.3)};$("zout").onclick=function(){zoom(1/1.3)};
+function place(el,e){var r=cv.getBoundingClientRect();el.style.display="block";var x=e.clientX-r.left+14,y=e.clientY-r.top+14;
+  x=Math.min(x,r.width-el.offsetWidth-6);y=Math.min(y,r.height-el.offsetHeight-6);el.style.left=Math.max(4,x)+"px";el.style.top=Math.max(4,y)+"px"}
+function hits(e){var r=cv.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,o=[];
+  marks.forEach(function(m){if(m.s){var d=Math.hypot(m.s[0]-x,m.s[1]-y);if(d<11)o.push([d,m])}});o.sort(function(a,b){return a[0]-b[0]});return o.map(function(a){return a[1]})}
+function choose(m){$("tip").style.display="none";if(m.k==="titan"&&hasModel(m.t.id)){select(m.t.id,m.l);open3D(m.t.id,m.t.locations.indexOf(m.l));return}if(m.k==="titan")select(m.t.id,m.l);else if(m.k==="post"){S.sel=null;renderPosts(m.l);roster()}else{S.sel=null;renderHollow(m.l);roster()}}
+
+/* ---------- roster ---------- */
+var VERSIONS={godzilla:["godzilla-showa","godzilla-heisei","zilla-1998","godzilla-millennium","godzilla","shin-godzilla","godzilla-earth","godzilla-ultima","godzilla-minus-one"].filter(function(v){return byId[v]})},VARIANT={};
+for(var vg in VERSIONS)VERSIONS[vg].forEach(function(v){if(v!==vg)VARIANT[v]=vg});
+var UNI={toho:"Toho 东宝",monsterverse:"Legendary MonsterVerse",tristar:"TriStar Pictures","kaiju-universe":"Kaiju Universe · Roblox"};
+function base(id){return VARIANT[id]||id}
+function group3D(id){return(VERSIONS[id]||[id]).some(hasModel)}
+function roster(){var l=D.titans.filter(function(t){return!VARIANT[t.id]&&!t.monarch_file}),h="<div class='rh'>泰坦名录 · "+l.length+"</div>";
+  l.forEach(function(t){var cur=base(S.sel)===t.id;h+="<button class='ri' data-id='"+t.id+"' style='--c:"+t.color+"' aria-current='"+cur+"'><span class='d'></span><span><b>"+esc(t.name_cn)+"</b><span>"+esc(t.name_en)+(VERSIONS[t.id]?" · "+VERSIONS[t.id].length+" 个版本":"")+"</span></span><em>"+(t.height_m?t.height_m+"m":"")+"</em></button>"});
+  $("roster").innerHTML=h}
+$("roster").addEventListener("click",function(e){var b=e.target.closest(".ri");if(!b)return;var id=b.dataset.id,tg=id;
+  if(base(S.sel)===id&&S.sel!==id)tg=S.sel;else if(!hasModel(id)&&VERSIONS[id]){var mv=VERSIONS[id].filter(hasModel)[0];if(mv)tg=mv}
+  if(S.sel!==tg)select(tg);if(hasModel(tg))open3D(tg,G3.open&&G3.id===tg?G3.loc:0)});
+
+/* ---------- dossier ---------- */
+function versionTabs(t){var g=VERSIONS[base(t.id)];if(!g)return"";return"<div class='vt' role='tablist' aria-label='版本'>"+g.map(function(v){var x=byId[v];if(!x)return"";var on=v===t.id;
+  return"<button role='tab' aria-selected='"+on+"' data-v='"+v+"' style='--c:"+x.color+"'><b>"+esc(x.era_cn||(x.universe==="toho"?"东宝":"怪兽宇宙"))+"</b><small>"+(x.films||[]).map(function(f){return f.year}).sort()[0]+" 起</small></button>"}).join("")+"</div>"}
+function monarchFiles(t){if(t.id!=="king-ghidorah")return"";var l=D.titans.filter(function(x){return x.monarch_file});if(!l.length)return"";
+  return"<h2>补充资料 · Monarch 档案里的其他泰坦</h2><p class='fine' style='margin-top:0'>Ghidorah 在 2019 年发出召唤后，Monarch 屏幕上同时标出了这些泰坦的位置。它们在电影里都没有正式登场，名字取自世界各地的神话，下面是每只的出处与依据。</p>"+
+  l.map(function(x){var L=(x.locations||[])[0]||{};return"<div class='mf'><b style='color:"+x.color+"'>"+esc(x.name_cn)+"</b> <span class='mfd'>"+esc(x.designation||x.name_en)+" · "+esc((L.name||"").replace(/（.*?）/g,""))+"</span><p>"+esc(x.myth)+"</p><small>"+esc(x.status||"")+(x.height_m?" · "+x.height_m+" m（游戏/漫画设定）":"")+"</small></div>"}).join("")}
+function score(t){var s=0;for(var k in W8)s+=(t.stats[k]||0)*W8[k];return s}
+function num(n){return n==null?"—":Number(n).toLocaleString("en-US")}
+function select(id,loc){var t=byId[id];if(!t)return;loreBuild(id);endStory();if(G3.open&&!hasModel(id))close3D();S.sel=id;roster();
+  var L=loc||(t.locations||[])[0];if(L){if(L.layer==="hollow"&&!S.hollow)setHollow(true);if(!S.showT){S.showT=true;$("tTitan").setAttribute("aria-pressed","true")}flyTo(L.lat,L.lon)}
+  var h="<div style='--c:"+t.color+"'><div class='eyebrow'>"+(UNI[t.universe]||t.universe)+" · 档案</div>"+
+  versionTabs(t)+"<div class='name'>"+esc(t.name_cn.replace(/（.*?）/g,""))+"</div><div class='sub'>"+esc(t.name_en)+(t.designation?" / "+esc(t.designation):"")+"</div>"+
+  "<div class='chips'><span class='chip c'>"+esc(t.role)+"</span><span class='chip'>"+esc(t.status)+"</span><span class='chip'>综合 "+score(t).toFixed(0)+"</span></div>"+
+  (hasModel(t.id)?"":(group3D(base(t.id))?"<p class='fine' style='margin:10px 0 0'>这个版本暂无 3D 模型，切换到有 3D 标记的版本即可查看。</p>":""))+
+  "<dl class='grid4'><div><dt>身高</dt><dd>"+num(t.height_m)+"<small>m</small></dd></div><div><dt>体重</dt><dd>"+num(t.weight_t)+"<small>t</small></dd></div>"+
+  "<div><dt>"+(t.wingspan_m?"翼展":"体长")+"</dt><dd>"+num(t.wingspan_m||t.length_m)+"<small>m</small></dd></div><div><dt>首次登场</dt><dd>"+((t.films||[]).map(function(f){return f.year}).sort()[0]||"—")+"</dd></div>"+
+  "<div class='wide'><dt>栖息地</dt><dd>"+esc(t.habitat)+"</dd></div>"+(t.size_note?"<div class='wide'><dt>尺寸说明（Wikizilla 核对）</dt><dd style='font-size:12px;color:var(--dim)'>"+esc(t.size_note)+"</dd></div>":"")+"</dl>"+monarchFiles(t)+
+  ruler(t)+
+  "<h2>六维属性</h2>"+STAT.map(function(s){var v=t.stats[s[0]]||0;return"<div class='stat'><span>"+s[1]+"</span><span class='t'><i style='width:"+v+"%'></i></span><span class='n'>"+v+"</span></div>"}).join("")+
+  "<h2>能力</h2><ul class='plain'>"+(t.abilities||[]).map(function(a){return"<li>"+esc(a)+"</li>"}).join("")+"</ul>"+
+  "<h2>远古神话与名字来源</h2><p>"+esc(t.myth)+"</p>"+artList(t)+
+  "<h2>简介</h2><p data-tw='bio'>"+esc(t.bio)+"</p>"+
+  "<h2>战绩</h2><ul class='plain'>"+(t.feats||[]).map(function(a){return"<li>"+esc(a)+"</li>"}).join("")+"</ul>"+
+  "<h2>登场作品</h2>"+(t.films||[]).map(function(f){return"<div class='film'><span class='y'>"+f.year+"</span><span>"+esc(f.title_cn||f.title)+" <small>"+esc(f.title)+"</small></span><a class='tr' target='_blank' rel='noopener' href='https://www.youtube.com/results?search_query="+encodeURIComponent(f.title.replace(/ S2$/,' season 2')+' official trailer')+"'>预告片 ↗</a></div>"}).join("")+
+  "<h2>出没记录</h2>"+(t.locations||[]).map(function(l,i){return"<button class='loc' data-i='"+i+"'><span class='co'>"+(l.layer==="hollow"?"HOLLOW · ":"")+fmtLL(l.lat,l.lon)+"</span><b>"+esc(l.name)+"</b><small>"+esc(l.note)+"</small></button>"}).join("")+
+  (t.model_note?"<p class='fine'>"+esc(t.model_note)+"</p>":"")+
+  "<h2>资料来源</h2><div class='vids'>"+(t.source_urls||[]).map(function(u){return"<a target='_blank' rel='noopener' href='"+esc(u)+"'><b>"+esc(decodeURIComponent(u.replace(/^https?:\/\//,"").replace(/\/wiki\//," · ")))+"</b><small>原始资料页 ↗</small></a>"}).join("")+
+  "<a target='_blank' rel='noopener' href='https://godzilla.fandom.com/wiki/Special:Search?query="+encodeURIComponent(t.name_en.replace(/\s*\(.*?\)/,""))+"'><b>在 Gojipedia 搜索 "+esc(t.name_en)+"</b><small>godzilla.fandom.com ↗</small></a></div>"+
+  "<button class='act' id='toVs'>把 "+esc(t.name_cn)+" 加入战力对比</button>"+fine()+"</div>";
+  var P=$("panel");P.innerHTML=h;P.scrollTop=0;
+  P.querySelectorAll(".loc").forEach(function(b){b.onclick=function(){var l=t.locations[+b.dataset.i];if(l.layer==="hollow"&&!S.hollow)setHollow(true);flyTo(l.lat,l.lon)}});
+  $("toVs").onclick=function(){openVs(t.id)};
+  if(hasModel(t.id)){P.querySelectorAll(".loc").forEach(function(b){b.onclick=function(){open3D(t.id,+b.dataset.i)}})}
+  P.querySelectorAll(".vt button").forEach(function(b){b.onclick=function(){select(b.dataset.v)}});
+  if(hasModel(id)&&booted&&!(G3.open&&G3.id===id))open3D(id,loc?Math.max(0,(t.locations||[]).indexOf(loc)):startLoc(id));P.querySelectorAll('.rb').forEach(function(b){b.onclick=function(){select(b.dataset.id)}})}
+function fine(){return"<p class='fine'>粉丝自制的非官方资料页。身高体重取自影片设定资料，预告片链接会打开 YouTube 搜索，六维属性与胜率为主观估算。地图为示意性点阵，坐标为近似值；Skull Island 等为虚构地点。</p>"}
+function renderPosts(cur){holo.on=false;close3D();var h="<div class='eyebrow'>Monarch · 前哨站网络</div><div class='name'>前哨站</div><div class='sub'>共 "+D.outposts.length+" 处记录</div><h2>列表</h2>";
+  D.outposts.forEach(function(o,i){h+="<button class='loc' data-i='"+i+"' style='"+(cur===o?"border-color:var(--amber)":"")+"'><span class='co'>"+fmtLL(o.lat,o.lon)+"</span><b>"+esc(o.id)+(o.name?" · "+esc(o.name):"")+"</b><small>"+esc(o.note)+"</small></button>"});
+  var P=$("panel");P.innerHTML=h+fine();P.querySelectorAll(".loc").forEach(function(b){b.onclick=function(){var o=D.outposts[+b.dataset.i];flyTo(o.lat,o.lon)}});
+  if(cur){flyTo(cur.lat,cur.lon)}else P.scrollTop=0}
+function renderHollow(cur){holo.on=false;close3D();var H=D.hollowEarth,h="<div style='--c:var(--amber)'><div class='eyebrow'>地心世界</div><div class='name'>Hollow Earth</div><div class='sub'>地球内部的泰坦起源地</div><h2>概述</h2><p>"+esc(H.intro)+"</p><h2>主要区域</h2><ul class='plain'>"+
+  (H.regions||[]).map(function(r){return"<li><b>"+esc(r.name)+"</b><br><span style='color:var(--dim)'>"+esc(r.desc)+"</span></li>"}).join("")+"</ul><h2>已知入口</h2>";
+  (H.entrances||[]).forEach(function(o,i){h+="<button class='loc' data-i='"+i+"' style='"+(cur===o?"border-color:var(--amber)":"")+"'><span class='co'>"+fmtLL(o.lat,o.lon)+"</span><b>"+esc(o.name)+"</b><small>"+esc(o.note)+"</small></button>"});
+  var dw=D.titans.filter(function(t){return(t.locations||[]).some(function(l){return l.layer==="hollow"})});
+  h+="<h2>地心中的泰坦</h2><div class='chips'>"+dw.map(function(t){return"<button class='chip c' style='--c:"+t.color+";background:none' data-t='"+t.id+"'>"+esc(t.name_cn)+"</button>"}).join("")+"</div>"+fine()+"</div>";
+  var P=$("panel");P.innerHTML=h;P.querySelectorAll(".loc").forEach(function(b){b.onclick=function(){var o=H.entrances[+b.dataset.i];flyTo(o.lat,o.lon)}});
+  P.querySelectorAll("[data-t]").forEach(function(b){b.onclick=function(){select(b.dataset.t,byId[b.dataset.t].locations.filter(function(l){return l.layer==="hollow"})[0])}});
+  if(cur)flyTo(cur.lat,cur.lon);else P.scrollTop=0}
+function setHollow(v){S.hollow=v;$("tHollow").setAttribute("aria-pressed",v)}
+$("tHollow").onclick=function(){setHollow(!S.hollow);if(S.hollow){S.sel=null;roster();renderHollow()}};
+$("tTitan").onclick=function(){S.showT=!S.showT;this.setAttribute("aria-pressed",S.showT)};
+$("tPost").onclick=function(){S.showP=!S.showP;this.setAttribute("aria-pressed",S.showP);if(S.showP){S.sel=null;roster();renderPosts()}};
+
+var holo={on:false};
+/* ---------- myth artworks: images in art/, all from Wikimedia Commons (public domain / CC) ---------- */
+/* IMG[slug] = [title, note, credit, Commons file]; ART[titan id] = [slug, ...] */
+var IMG={"blake-red-dragon": ["The Great Red Dragon", "William Blake，约 1805 年。《启示录》里的七头大红龙", "William Blake · 公有领域", "William Blake - The Great Red Dragon and the Woman Clothed with the Sun - Google Art Project.jpg"], "hydra-getty": ["Herakles and the Hydra", "伊特鲁里亚陶瓶，约公元前 525 年，Getty 藏。赫拉克勒斯斩九头蛇", "J. Paul Getty Museum · CC0", "Caeretan hydria by Eagle Painter, front - Getty Museum (83.AE.346).jpg"], "yoshitoshi-orochi": ["素戔嗚尊斩八岐大蛇", "月冈芳年，1887 年《日本略史》", "月冈芳年 · 公有领域", "Susanoo-no-Mikoto-slays-Yamata-no-Orochi-in-Izumo-By-Tsukioka-Yoshitoshi.png"], "dore-leviathan": ["The Destruction of Leviathan", "Gustave Doré，1865 年。圣经中的深海巨兽 Leviathan", "Gustave Doré · 公有领域", "Destruction of Leviathan.png"], "carta-marina": ["Carta Marina 上的海怪", "Olaus Magnus，1539 年。北欧海图上挤满海中巨兽（局部）", "Olaus Magnus · 公有领域", "Carta Marina.jpeg"], "kuniyoshi-whale": ["宫本武藏の鲸退治", "歌川国芳，约 1847 年。Gojira 名字里的 kujira（鲸）", "歌川国芳 · 公有领域", "Miyamoto-Musashi-Attacking-Giant-Whale-Utagawa-Kuniyoshi.png"], "duchaillu-gorilla": ["The Gorilla", "Du Chaillu《赤道非洲探险记》卷首，1861 年。西方第一次“看见”大猩猩", "公有领域", "The Gorilla - Du Chaillu.jpg"], "merian": ["Metamorphosis insectorum", "Maria Sibylla Merian，1705 年。蛾的幼虫、茧、成虫画在同一页", "Maria Sibylla Merian · 公有领域", "Maria Merian Metamorphosis Insectorum Surinamensium MIA P18717.jpg"], "beard-pteranodon": ["The Great Cretaceous Ocean", "J. C. Beard，1898 年。白垩纪海面上空盘旋的 Pteranodon，Rodan 名字的来源", "James Carter Beard · 公有领域", "PSM V53 D224 The Great Cretaceous Ocean.jpg"], "hokusai-phoenix": ["八方睨み凤凰图", "葛饰北斋，1848 年，小布施岩松院天井画", "葛饰北斋 · 公有领域", "Hokusai Phoenix.jpg"], "blake-behemoth": ["Behemoth and Leviathan", "William Blake，1825 年《约伯记》插图。陆兽 Behemoth 与海兽 Leviathan", "William Blake · 公有领域", "William Blake - Behemoth and Leviathan - Google Art Project.jpg"], "scylla-louvre": ["Scylla", "彼奥提亚红绘陶器，公元前 450–425 年，卢浮宫藏。腰间长出犬首的海怪", "公有领域", "Bell-crater Scylla Louvre CA1341.jpg"], "methuselah": ["Methuselah", "坎特伯雷大教堂彩色玻璃，12 世纪。活了 969 岁的族长", "Robert Scarth 摄 · CC BY-SA 2.0", "Methuselah Stained glass.jpg"], "layard-chaos-monster": ["Chaos Monster and Sun God", "Layard《尼尼微遗迹》，1853 年。长期被解读为 Marduk 追击 Tiamat", "Layard / L. Gruner · 公有领域", "Chaos Monster and Sun God.png"], "talos": ["The Death of Talos", "红绘陶器，约公元前 400 年。青铜巨人 Talos 倒下（局部）", "ArchaiOptix 摄 · CC BY-SA 4.0", "Talos Painter - ARV 1338 1 - Dionysos with satyrs and maenads - death of Talos - Argonauts and gods - Ruvo MANJ 36933 - 04.jpg"], "duria-antiquior": ["Duria Antiquior", "Henry De la Beche，1830 年。第一幅远古海洋复原画：鱼龙与蛇颈龙互相厮杀", "H. De la Beche · 公有领域", "Duria Antiquior.jpg"], "soe-orm": ["Søorm 海蛇", "Olaus Magnus《北方民族史》，1555 年。缠住船只的巨大海蛇", "Olaus Magnus · 公有领域", "Soe Orm 1555.jpg"], "lastman-jonah": ["Jonah and the Whale", "Pieter Lastman，1621 年。约拿被巨鱼吞下", "Pieter Lastman · 公有领域", "Pieter Lastman - Jonah and the Whale - Google Art Project.jpg"], "namazu": ["众人围打大鲶鱼", "1855 年安政大地震后的鲶绘。民间相信地底大鲶鱼翻身引发地震", "UBC Library · 公有领域", "People attacking a Namazu, a giant catfish, for causing earthquakes (13469873203).jpg"], "kuniyoshi-tomomori": ["平知盛的亡灵", "歌川国芳。沉入海底的平家武士亡灵，与满地的平家蟹", "歌川国芳 · 公有领域", "The ghost of Taira Tomomori.jpg"], "kuniyoshi-daimotsu": ["大物浦海底之图", "歌川国芳，大英博物馆藏。沉入海底的平家一门", "歌川国芳 · 公有领域", "Daimotsu-no-ura kaitei no zu 大物之浦海底之圖 (The Sea Bed at Daimotsu Bay) (BM 2008,3037.20104).jpg"], "hokusai-wave": ["神奈川冲浪里", "葛饰北斋，约 1831 年", "葛饰北斋 · 公有领域", "Tsunami by hokusai 19th century.jpg"], "hawkins-jurassic": ["Jurassic Life of Europe", "B. W. Hawkins，1877 年。维多利亚时代想象的侏罗纪巨兽", "B. W. Hawkins · 公有领域", "Benjamin Waterhouse Hawkins - Jurassic Life of Europe - PP340 - Princeton University Art Museum.jpg"], "knight-trex": ["Tyrannosaurus", "Charles R. Knight，20 世纪初。直立“尾巴拖地”的老式霸王龙", "Charles R. Knight · 公有领域", "T. rex old posture.jpg"], "hokusai-yatai-dragon": ["祭屋台天井·龙", "葛饰北斋，1844 年，小布施东町祭屋台", "葛饰北斋 · 公有领域", "Matsuri Yatai Dragon (Hokusaikan Obuse).jpg"], "hokusai-dragon": ["龙", "葛饰北斋", "葛饰北斋 · 公有领域", "Hokusai Dragon.jpg"], "kuniyoshi-skeleton": ["相马の古内裏", "歌川国芳，约 1844 年。泷夜叉姬召出的巨大骷髅", "歌川国芳 · 公有领域", "Takiyasha the Witch and the Skeleton Spectre, by Utagawa Kuniyoshi.jpg"], "basilisk": ["Basilisk", "Ulisse Aldrovandi《蛇与龙志》，1640 年", "U. Aldrovandi · 公有领域", "Basilisk aldrovandi.jpg"], "duchaillu-close": ["与大猩猩近身对峙", "Du Chaillu《赤道非洲探险记》，1861 年", "公有领域", "French explorer Paul du Chaillu at close quarters with a gorilla.jpg"], "yoshitoshi-wukong": ["孙悟空与玉兔", "月冈芳年《月百姿》，1889 年", "月冈芳年 · 公有领域", "Sun Wukong and Jade Rabbit.jpg"], "ravivarma-hanuman": ["Hanuman", "Ravi Varma Press 石版画，约 1900 年。神猴哈奴曼", "Ravi Varma Press · 公有领域", "Ahimahi Vadh, Ravi Varma Press.jpg"], "hokusai-shojo-color": ["猩猩", "据葛饰北斋画稿重刊，1890 年。日本传说中嗜酒的猿形精怪", "葛饰北斋 · 公有领域", "Kansai-after-Hokusai-KatsushikaShinsōGafu(1890)-fol26-shojo.jpg"], "haeckel-moths": ["Tineida", "Ernst Haeckel《自然界的艺术形态》，1904 年", "Ernst Haeckel · 公有领域", "Haeckel Tineida.jpg"], "harris-aurelian": ["The Aurelian", "Moses Harris，1766 年。英国蛾蝶图谱", "Moses Harris · 公有领域", "Moses Harris07.jpg"], "attacus-atlas": ["Attacus atlas", "Cramer & Stoll，18 世纪。乌桕大蚕蛾，世界上最大的蛾之一", "Cramer & Stoll · 公有领域", "Attacus atlas ill.JPG"], "cramer-plate9": ["异国蛾蝶 图版 9", "Cramer & Stoll《Uitlandsche Kapellen》，1775 年起", "Cramer & Stoll · 公有领域", "Cramer&Stoll-uitlandsche kapellen vol. 1- plate 009.jpg"], "ravivarma-garuda": ["Garuda", "Raja Ravi Varma。印度神话中的金翅神鸟", "Raja Ravi Varma · 公有领域", "Raja Ravi Varma, Lord Garuda.jpg"], "yusheng-fenghuang": ["凤凰", "余省，18 世纪", "余省 · 公有领域", "Yu Sheng - Fenghuang - 18th-century.jpg"], "ravivarma-jatayu": ["Jatayu vadha", "Raja Ravi Varma，1906 年。巨鹫 Jatayu 与罗波那空战", "Raja Ravi Varma · 公有领域", "Raja Ravi Varma, Jatayu vadha, 1906.jpg"], "moreau-hydra": ["Hercules and the Lernaean Hydra", "Gustave Moreau，1876 年", "Gustave Moreau · 公有领域", "Gustave Moreau - Hercules and the Lernaean Hydra, 1876-1880.jpg"], "durer-beast": ["启示录之兽", "Albrecht Dürer 木刻，约 1497 年。七头兽与双角兽", "Albrecht Dürer · CC0", "Albrecht Dürer, The Beast with Two Horns like a Lamb, probably c. 1496-1498, NGA 6683.jpg"], "chikanobu-orochi": ["八岐大蛇", "豊原周延", "豊原周延 · 公有领域", "YamataNoOrochi.jpg"], "winged-dragon": ["有翼之龙", "Ulisse Aldrovandi《蛇与龙志》，1640 年", "U. Aldrovandi · CC0", "WingedDragon.jpg"], "talos-coin": ["Talos 银币", "克里特岛 Phaistos 银币，公元前 3 世纪。有翼的青铜巨人 Talos", "BnF · 公有领域", "Monnaie - Statère, Argent, Phaistos, Crète - btv1b85013635 (1 of 2).jpg"], "steiner-golem": ["Der Golem", "Hugo Steiner-Prag，1915 年。布拉格传说里的泥土巨人", "Hugo Steiner-Prag · 公有领域", "Steiner-Prag Golem.jpg"], "bosch-hell": ["人间乐园·地狱", "Hieronymus Bosch，约 1500 年（局部）", "Hieronymus Bosch · 公有领域", "Hieronymus Bosch - The Garden of Earthly Delights - Hell Detail.jpg"], "frolich-ymir": ["Ymir 之死", "Lorenz Frølich，19 世纪末。奥丁三兄弟杀死冰霜巨人始祖 Ymir", "公有领域", "Ymir gets killed by Froelich.jpg"], "odin-create-world": ["以 Ymir 之身造世界", "19 世纪北欧神话插图", "公有领域", "Odin and his brothers create the world.jpg"], "ravivarma-ravana": ["Ravana、Sita 与 Jatayu", "Raja Ravi Varma。魔王罗波那劫走悉多", "Raja Ravi Varma · 公有领域", "Ravi Varma-Ravana Sita Jathayu.jpg"], "hokusai-shojo": ["猩猩", "葛饰北斋，大都会博物馆藏", "葛饰北斋 · 公有领域", "Katsushika Hokusai - Shōjō - 56.121.8 - Metropolitan Museum of Art.jpg"], "infernal-behemoth": ["Behemoth", "Louis Le Breton《地狱辞典》，1863 年", "Louis Le Breton · 公有领域", "Ill dict infernal p0100-86 behemoth.jpg"], "fuseli-scylla": ["Odysseus zwischen Skylla und Charybdis", "Henry Fuseli，1794–96 年", "Henry Fuseli · 公有领域", "Füssli - Odysseus zwischen Skylla und Charybdis, 1794 - 1796, 884.jpg"], "bromley-scylla": ["Odysseus Between Scylla and Charybdis", "William Bromley 据 Fuseli 刻版，1806 年", "公有领域", "William Bromley - Odysseus Between Scylla and Charybdis, 1806.jpg"], "spranger-scylla": ["Glaucus and Scylla", "Bartholomeus Spranger，约 1580 年", "B. Spranger · 公有领域", "Bartholomäus Spranger 006.jpg"], "montfort-poulpe": ["Le Poulpe Colossal", "Pierre Denys de Montfort，1801 年。缠住帆船的巨型章鱼", "P. D. de Montfort · 公有领域", "Denys de Montfort Poulpe Colossal.jpg"], "marduk-pet": ["Marduk 与神龙", "据巴比伦印章的线描。Marduk 与他的龙 Mušḫuššu", "公有领域", "Marduk and pet.svg"], "quetzalcoatl-borbonicus": ["Quetzalcoatl", "16 世纪阿兹特克抄本", "公有领域", "Quetzalcoatl 1.jpg"], "quetzalcoatl-telleriano": ["羽蛇形态的 Quetzalcoatl", "《Telleriano-Remensis 抄本》，16 世纪", "公有领域", "Quetzalcoatl feathered serpent form as depicted in the Codex Telleriano-Remensi.jpg"], "quetzalcoatl-tezcatlipoca": ["Quetzalcoatl 与 Tezcatlipoca", "阿兹特克抄本", "公有领域", "Quetzalcoatl and Tezcatlipoca.jpg"], "uccello-george": ["Saint George and the Dragon", "Paolo Uccello，约 1470 年，伦敦国家美术馆", "Paolo Uccello · 公有领域", "Saint George and the Dragon by Paolo Uccello (London) 01.jpg"], "hokusai-fuji-dragon": ["富士越龙图", "葛饰北斋，1849 年，绝笔之一", "葛饰北斋 · 公有领域", "Hokusai-fuji-koryuu.png"], "beatus-saintsever": ["无底坑的蝗虫", "圣瑟韦《贝亚图斯启示录注释》，11 世纪", "公有领域", "Saint-Sever Beatus f. 145v - Locusts - crop.jpg"], "beatus-girona": ["无底坑天使与地狱蝗虫", "赫罗纳《贝亚图斯》，975 年。蝗虫之王就是 Abaddon", "公有领域", "Girona Beatus, folio 156v - angel of the abyss and the infernal locusts.jpg"], "beatus-huelgas": ["死亡骑兵", "拉斯韦尔加斯《贝亚图斯》，1220 年", "公有领域", "Las Huelgas Beatus - Death-Dealing Cavalry.jpg"], "beatus-facundus": ["第五号角", "Facundus《贝亚图斯》，1047 年", "公有领域", "B Facundus 171v.jpg"], "hortus-leviathan": ["钓起 Leviathan", "《Hortus deliciarum》（乐园之园）摹本，原作 12 世纪", "公有领域", "Hortus deliciarum Bastard folio 13.jpg"], "levi-baphomet": ["Baphomet", "Éliphas Lévi《高等魔法的教理与仪式》，1856 年", "Éliphas Lévi · 公有领域", "Baphomet by Éliphas Lévi.jpg"], "knight-brontosaurus": ["Brontosaurus", "Charles R. Knight，1897 年", "Charles R. Knight · 公有领域", "Illustration of the Brontosaurus by Charles R. Knight.jpg"], "knight-diplodocus": ["Diplodocus", "Charles R. Knight", "Charles R. Knight · 公有领域", "Diplodocus cknight.jpg"], "typhon-hydria": ["宙斯雷击提丰", "卡尔基斯陶瓶，约公元前 540 年，慕尼黑", "公有领域", "Zeus Typhon Staatliche Antikensammlungen 596.jpg"], "kircher-typhon": ["Typhon", "Athanasius Kircher《埃及的俄狄浦斯》，1652 年", "A. Kircher · 公有领域", "Kircher oedipus aegyptiacus 24 typhon.png"], "kuniyoshi-susanoo-dragon": ["须佐之男与水龙", "歌川国芳", "歌川国芳 · 公有领域", "Dragon Susanoo no mikoto and the water dragon.jpg"], "chikanobu-kushinada": ["须佐之男救奇稻田姬", "豊原周延，1886 年", "豊原周延 · 公有领域", "Susanoo rescues Kushinada Hime by Toyohara Chikanobu 1886.jpg"], "lizars-kraken": ["Kraken", "W. H. Lizars 刻版，《博物学家文库》，19 世纪", "W. H. Lizars · 公有领域", "Naturalistslibra25-p326a-kraken.jpg"], "olaus-kraken": ["海怪", "Olaus Magnus《北方民族史》，1555 年", "Olaus Magnus · 公有领域", "Kraken Olaus Magnus 1555.png"], "carta-polypus": ["巨型章鱼抓人", "Carta Marina 局部，1539 年", "Olaus Magnus · 公有领域", "Carta Marina -polypus as lobster snatches man.jpg"], "bunyip-1890": ["Bunyip", "澳大利亚报刊插图，1890 年", "公有领域", "Bunyip 1890.jpg"]};
+var ART={"godzilla": ["dore-leviathan", "duria-antiquior", "soe-orm", "carta-marina", "lastman-jonah", "hokusai-wave"], "godzilla-minus-one": ["kuniyoshi-whale", "kuniyoshi-tomomori", "kuniyoshi-daimotsu", "hokusai-wave", "namazu"], "godzilla-showa": ["namazu", "hokusai-wave", "kuniyoshi-whale", "duria-antiquior"], "godzilla-heisei": ["hawkins-jurassic", "knight-trex", "duria-antiquior"], "godzilla-millennium": ["hokusai-yatai-dragon", "hokusai-dragon", "hokusai-wave"], "shin-godzilla": ["kuniyoshi-skeleton", "namazu", "kuniyoshi-tomomori", "hokusai-fuji-dragon"], "zilla-1998": ["knight-trex", "basilisk", "hawkins-jurassic"], "kong": ["duchaillu-gorilla", "duchaillu-close", "yoshitoshi-wukong", "ravivarma-hanuman", "hokusai-shojo-color"], "mothra": ["merian", "haeckel-moths", "harris-aurelian", "attacus-atlas", "cramer-plate9"], "rodan": ["beard-pteranodon", "hokusai-phoenix", "ravivarma-garuda", "yusheng-fenghuang", "ravivarma-jatayu"], "king-ghidorah": ["blake-red-dragon", "hydra-getty", "moreau-hydra", "durer-beast", "yoshitoshi-orochi", "chikanobu-orochi"], "muto": ["basilisk", "winged-dragon", "haeckel-moths"], "mechagodzilla": ["talos", "talos-coin", "steiner-golem"], "skullcrawler": ["kuniyoshi-skeleton", "bosch-hell", "basilisk", "winged-dragon"], "shimo": ["frolich-ymir", "odin-create-world"], "skar-king": ["ravivarma-ravana", "hokusai-shojo", "yoshitoshi-wukong"], "suko": ["ravivarma-hanuman", "hokusai-shojo", "hokusai-shojo-color"], "behemoth": ["blake-behemoth", "infernal-behemoth"], "scylla": ["scylla-louvre", "fuseli-scylla", "bromley-scylla", "spranger-scylla"], "methuselah": ["methuselah"], "titan-x": ["montfort-poulpe", "lizars-kraken", "olaus-kraken"], "tiamat": ["layard-chaos-monster", "marduk-pet"], "warbat": ["quetzalcoatl-telleriano", "winged-dragon", "quetzalcoatl-borbonicus"], "ion-dragon": ["hokusai-dragon", "uccello-george", "hokusai-fuji-dragon"], "frost-vark": ["frolich-ymir"], "abaddon": ["beatus-girona", "beatus-saintsever", "beatus-facundus", "beatus-huelgas", "durer-beast"], "leviathan": ["dore-leviathan", "blake-behemoth", "hortus-leviathan", "lastman-jonah", "soe-orm"], "baphomet": ["levi-baphomet"], "mokele-mbembe": ["knight-brontosaurus", "knight-diplodocus"], "typhon": ["typhon-hydria", "kircher-typhon"], "yamata-no-orochi": ["yoshitoshi-orochi", "chikanobu-orochi", "chikanobu-kushinada", "kuniyoshi-susanoo-dragon"], "quetzalcoatl": ["quetzalcoatl-telleriano", "quetzalcoatl-tezcatlipoca", "quetzalcoatl-borbonicus"], "kraken": ["montfort-poulpe", "lizars-kraken", "olaus-kraken", "carta-polypus"], "bunyip": ["bunyip-1890"], "godzilla-earth": ["hawkins-jurassic", "knight-trex", "duria-antiquior"], "godzilla-ultima": ["namazu", "hokusai-dragon", "kuniyoshi-skeleton"]};
+
+function artSrc(s){return"art/"+s+".jpg"}
+function artList(t){var a=ART[t.id];if(!a)return"";
+  return"<h2>神话原画 · "+a.length+" 幅</h2><div class='myth'>"+a.map(function(s,i){var x=IMG[s];return"<figure><button class='mfig' data-t='"+t.id+"' data-i='"+i+"' aria-label='放大："+esc(x[0])+"'><img src='"+artSrc(s)+"' alt='"+esc(x[0])+"' loading='lazy'></button>"+
+  "<figcaption><b>"+esc(x[0])+"</b><small>"+esc(x[1])+"</small></figcaption></figure>"}).join("")+"</div>"}
+/* lightbox */
+var LB={id:null,i:0};
+function openArt(id,i){var a=ART[id];if(!a||!a[i])return;LB.id=id;LB.i=i;var s=a[i],x=IMG[s];$("lbImg").src=artSrc(s);$("lbImg").alt=x[0];
+  $("lbCap").innerHTML="<b>"+esc(x[0])+"</b> "+esc(x[1])+"<small>"+esc(x[2])+" · <a target='_blank' rel='noopener' href='https://commons.wikimedia.org/wiki/File:"+encodeURIComponent(x[3].replace(/ /g,"_"))+"'>Wikimedia Commons ↗</a> · "+(i+1)+" / "+a.length+"</small>";
+  $("lbPrev").hidden=$("lbNext").hidden=a.length<2;$("lb").classList.add("on");if(!$("lb").contains(document.activeElement))$("lbX").focus()}
+function stepArt(d){var a=ART[LB.id];if(a)openArt(LB.id,(LB.i+d+a.length)%a.length)}
+function closeArt(){$("lb").classList.remove("on")}
+$("lbPrev").onclick=function(e){e.stopPropagation();stepArt(-1)};$("lbNext").onclick=function(e){e.stopPropagation();stepArt(1)};
+document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest(".mfig");if(b){openArt(b.dataset.t,+b.dataset.i);return}if(e.target.id==="lb"||e.target.id==="lbX")closeArt()});
+document.addEventListener("keydown",function(e){
+  if($("lb").classList.contains("on")){if(e.key==="Escape")closeArt();else if(e.key==="ArrowLeft")stepArt(-1);else if(e.key==="ArrowRight")stepArt(1);else return;e.preventDefault();e.stopImmediatePropagation();return}
+  if(e.key==="Escape"&&LORE.open){loreClose();e.stopImmediatePropagation()}},true);
+/* lore pile: a stack of small archive prints in the stage's top-right; click -> they orbit the model/globe */
+var LORE={id:null,open:false,a0:-Math.PI/2,raf:0,last:0,hover:false,orbit:false};
+function hashR(i,m,k){return((i*k+7)%m)-(m-1)/2}
+function loreBuild(id){var el=$("lore"),a=ART[id]||[];if(LORE.id===id&&el.childElementCount)return;loreClose(true);LORE.id=id;
+  el.innerHTML="<div class='lore-ring'></div>"+a.map(function(s,i){var x=IMG[s];return"<button class='lc' data-i='"+i+"' aria-label='"+esc(x[0])+"'><img src='"+artSrc(s)+"' alt='' draggable='false'><span>"+esc(x[0])+"</span></button>"}).join("")+
+    "<button class='lore-tag' aria-label='展开神话原画'>神话原画 · "+a.length+"</button><button class='lore-x'>收起 ✕</button>";
+  el.hidden=!a.length;loreLayout()}
+function stageWH(){var e=$("stage");return[e.clientWidth,e.clientHeight]}
+function loreGeo(){var w=stageWH(),W=w[0],H=w[1],cw=Math.max(96,Math.min(170,W*.15));
+  var m3=$("stage").classList.contains("m3"),top=(m3?120:70)+cw*.45,bot=H-22-cw*.45;return{W:W,H:H,cw:cw,cx:W/2,cy:(top+bot)/2,rx:Math.max(120,W/2-cw*.62-10),ry:Math.max(80,(bot-top)/2),px:W-70,py:m3?112:74}}
+function loreLayout(){var el=$("lore"),cs=el.querySelectorAll(".lc"),g=loreGeo(),n=cs.length;if(!n)return;
+  el.style.setProperty("--cw",(LORE.open?g.cw:74)+"px");
+  var ring=el.querySelector(".lore-ring");ring.style.cssText="left:"+(g.cx-g.rx)+"px;top:"+(g.cy-g.ry)+"px;width:"+(2*g.rx)+"px;height:"+(2*g.ry)+"px";
+  var tag=el.querySelector(".lore-tag");tag.style.left=(g.px-40)+"px";tag.style.top=(g.py+44)+"px";
+  for(var i=0;i<n;i++){var c=cs[i],t,z,o=1;
+    if(!LORE.open){var k=Math.min(i,5);t="translate("+(g.px+hashR(i,9,5)*3)+"px,"+(g.py+hashR(i,7,3)*2.5)+"px) translate(-50%,-50%) rotate("+hashR(i,23,11)*1.1+"deg)";z=i;o=i>5?0:1}
+    else{var a=LORE.a0+i*2*Math.PI/n,d=(Math.sin(a)+1)/2,sc=.74+.34*d;t="translate("+(g.cx+g.rx*Math.cos(a))+"px,"+(g.cy+g.ry*Math.sin(a))+"px) translate(-50%,-50%) scale("+sc.toFixed(3)+")";z=10+Math.round(d*100);o=.5+.5*d}
+    c.style.transform=t;c.style.zIndex=z;c.style.opacity=o}}
+function loreOpen(){if(LORE.open)return;LORE.open=true;$("lore").classList.add("open");loreLayout();
+  if(!reduce)setTimeout(function(){if(!LORE.open)return;$("lore").classList.add("orbit");LORE.last=performance.now();LORE.raf=requestAnimationFrame(loreSpin)},850)}
+function loreClose(quiet){if(!LORE.open)return;LORE.open=false;cancelAnimationFrame(LORE.raf);var el=$("lore");el.classList.remove("orbit","open");if(!quiet)loreLayout()}
+function loreSpin(ts){if(!LORE.open)return;var dt=Math.min(64,ts-LORE.last);LORE.last=ts;if(!LORE.hover&&!$("lb").classList.contains("on"))LORE.a0+=dt*.00011;loreLayout();LORE.raf=requestAnimationFrame(loreSpin)}
+$("lore").addEventListener("click",function(e){var c=e.target.closest(".lc,.lore-tag,.lore-x");if(!c)return;e.stopPropagation();
+  if(c.classList.contains("lore-x")){loreClose();return}
+  if(!LORE.open){loreOpen();return}if(c.classList.contains("lc"))openArt(LORE.id,+c.dataset.i)});
+$("lore").addEventListener("pointerover",function(e){LORE.hover=!!e.target.closest(".lc")});
+$("lore").addEventListener("pointerleave",function(){LORE.hover=false});
+addEventListener("resize",function(){loreLayout()});
+/* ---------- height ruler ---------- */
+var MARKS=[["比萨斜塔",56],["自由女神像",93],["胡夫金字塔",139]];
+function ruler(t){var l=D.titans.filter(function(x){return x.height_m}).sort(function(a,b){return a.height_m-b.height_m}),mx=170;
+  var h="<h2>身高标尺</h2><div class='ruler'>"+MARKS.map(function(m){return"<span class='ml' style='bottom:"+(m[1]/mx*100)+"%'><em>"+m[0]+" "+m[1]+" m</em></span>"}).join("")+"<div class='bars'>"+
+  l.map(function(x){var on=x.id===t.id;return"<button class='rb"+(on?" on":"")+"' data-id='"+x.id+"' title='"+esc(x.name_cn)+" "+x.height_m+" m' style='height:"+(x.height_m/mx*100)+"%;--c:"+x.color+"'>"+(on?"<b>"+x.height_m+" m</b>":"")+"</button>"}).join("")+"</div></div>"+
+  "<p class='fine' style='margin-top:6px'>"+(t.height_m?"按身高从低到高排列，亮起的是 "+esc(t.name_cn)+"；点任意一根柱子切换。":esc(t.name_cn)+" 的身高未公布，未列入标尺。")+"</p>";return h}
+
+/* ---------- story playback ---------- */
+var STORY=[
+{title:"Godzilla (2014)",steps:[[14.6,121,0,"muto","1999 年，菲律宾矿坑塌陷，Monarch 发现巨型骨架和两枚孢囊。"],[35.2,140.1,0,"muto","雀路罗核电站被毁。15 年后，雄性 MUTO 在废墟中破茧。"],[21.31,-157.86,0,"godzilla","檀香山：Godzilla 首次上岸，与雄性 MUTO 交手。"],[36.17,-115.14,0,"muto","雌性 MUTO 从内华达的核废料库破山而出，横穿拉斯维加斯。"],[37.77,-122.42,0,"godzilla","旧金山决战：Godzilla 先后击杀两只 MUTO，回到海中。"]]},
+{title:"Godzilla: King of the Monsters (2019)",steps:[[25,102.7,0,"mothra","云南 Outpost 61：Mothra 幼虫孵化。"],[-77.5,106.8,0,"king-ghidorah","南极 Outpost 32：Monster Zero 被释放，首战压制 Godzilla。"],[19.6,-95.4,0,"rodan","Isla de Mara：Rodan 苏醒，败给 Ghidorah；Oxygen Destroyer 重创 Godzilla。"],[30.5,-66,0,"godzilla","大西洋海底：Serizawa 引爆核弹，唤醒濒死的 Godzilla。"],[38.9,-77.04,0,"king-ghidorah","华盛顿：Ghidorah 带着风暴盘踞首都，全球 Titans 苏醒。"],[42.36,-71.06,0,"godzilla","波士顿：Mothra 牺牲，Burning Godzilla 击杀 Ghidorah，众 Titans 臣服。"]]},
+{title:"Godzilla vs. Kong (2021)",steps:[[30.42,-87.22,0,"godzilla","彭萨科拉：Godzilla 突然袭击 Apex 工厂。"],[-9,160,0,"kong","骷髅岛：Monarch 决定把 Kong 运往南极。"],[-40,160,0,"godzilla","塔斯曼海：Godzilla 截击船队，海上第一战 Kong 落败。"],[-80,100,0,"kong","南极入口：Kong 带领 HEAV 机队进入 Hollow Earth。"],[-78,100,1,"kong","Hollow Earth 王座厅：Kong 找到祖先的战斧。"],[22.32,114.17,0,"mechagodzilla","香港：Godzilla 击败 Kong；Mechagodzilla 失控，两者联手将其摧毁。"]]},
+{title:"Godzilla x Kong: The New Empire (2024)",steps:[[41.89,12.49,0,"godzilla","罗马：Godzilla 击杀 Scylla，在斗兽场里休眠。"],[47.7,1.6,0,"godzilla","法国：Godzilla 吞噬核电站的辐射。"],[79,35,0,"tiamat","北极海域：击杀 Tiamat，占据巢穴，进化为 Evolved 形态。"],[-60,-25,1,"skar-king","Hollow Earth 深处：Kong 在 Suko 带领下发现 Skar King 的领域，被 Shimo 冻伤。"],[29.98,31.13,0,"kong","吉萨：Kong 回到地表求援，与 Godzilla 交手，被 Mothra 调停。"],[-22.91,-43.17,0,"shimo","里约：晶石被毁，Shimo 重获自由，冰封 Skar King，由 Kong 击碎。"]]},
+{title:"Godzilla Minus One (2023)",steps:[[34.1,139.5,0,"godzilla-minus-one","1945 年，大户岛：敷岛第一次遇见传说中的“吴尔罗”。"],[11.58,165.38,0,"godzilla-minus-one","1946 年，比基尼环礁：核试验让它急速巨大化。"],[35.67,139.77,0,"godzilla-minus-one","1947 年，东京银座：热线一击摧毁街区。"],[35.1,139.4,0,"godzilla-minus-one","相模湾：民间船队执行“海神作战”，用深海压差击溃它。"]]}];
+var ST=null;
+(function(){var o="<option value=''>剧情回放…</option>";STORY.forEach(function(s,i){o+="<option value='"+i+"'>"+s.title+"</option>"});$("story").innerHTML=o;
+  $("story").onchange=function(){if(this.value==="")endStory();else playStory(+this.value)}})();
+function playStory(i){close3D();S.sel=null;roster();ST={s:STORY[i],k:0,play:!reduce,tm:0};S.zoom=Math.max(S.zoom,1.15);goStep(0)}
+function endStory(){if(!ST)return;clearTimeout(ST.tm);ST=null;$("cap").style.display="none";$("hud").style.display="";$("story").value=""}
+function goStep(k){if(!ST)return;clearTimeout(ST.tm);var n=ST.s.steps.length;k=Math.max(0,Math.min(n-1,k));ST.k=k;var p=ST.s.steps[k],t=byId[p[3]]||{};
+  setHollow(!!p[2]);flyTo(p[0],p[1]);
+  $("hud").style.display="none";var c=$("cap");c.style.display="block";c.style.setProperty("--c",t.color||"#f3a83a");
+  c.innerHTML="<div class='eyebrow'>"+esc(ST.s.title)+" · "+(k+1)+" / "+n+"</div><p><b style='color:var(--c)'>"+esc(t.name_cn||"")+"</b>　"+esc(p[4])+"</p><div class='cb'><button data-a='p'>上一幕</button><button data-a='t'>"+(ST.play?"暂停":"播放")+"</button><button data-a='n'>下一幕</button>"+(t.id?"<button data-a='d'>看 "+esc(t.name_cn)+" 档案</button>":"")+"<button data-a='x'>结束</button></div>";
+  if(ST.play&&k<n-1)ST.tm=setTimeout(function(){goStep(k+1)},4200);else if(k===n-1)ST.play=false}
+$("cap").addEventListener("click",function(e){var a=(e.target.dataset||{}).a;if(!a||!ST)return;
+  if(a==="p")goStep(ST.k-1);else if(a==="n")goStep(ST.k+1);else if(a==="t"){ST.play=!ST.play;if(ST.play&&ST.k===ST.s.steps.length-1)goStep(0);else goStep(ST.k)}
+  else if(a==="x")endStory();else if(a==="d"){var id=ST.s.steps[ST.k][3];select(id)}});
+function drawStory(ts){if(!ST)return;var st=ST.s.steps,i,j,pulse=reduce?.5:(ts/1100)%1;
+  function pt(p){return{v:vec(p[0],p[1]),r:p[2]?INNER:1}}
+  for(i=1;i<=ST.k;i++){var a=pt(st[i-1]),b=pt(st[i]),d=a.v[0]*b.v[0]+a.v[1]*b.v[1]+a.v[2]*b.v[2],om=Math.acos(Math.max(-1,Math.min(1,d)));
+    g.strokeStyle=(byId[st[i][3]]||{}).color||"#f3a83a";g.lineWidth=2;g.globalAlpha=i===ST.k?1:.5;g.beginPath();var pen=false;
+    for(j=0;j<=32;j++){var f=j/32,q;if(om<1e-4)q=a.v;else{var s1=Math.sin((1-f)*om)/Math.sin(om),s2=Math.sin(f*om)/Math.sin(om);q=[a.v[0]*s1+b.v[0]*s2,a.v[1]*s1+b.v[1]*s2,a.v[2]*s1+b.v[2]*s2]}
+      var rr=(a.r+(b.r-a.r)*f)*(1+.06*Math.sin(Math.PI*f)*(a.r===1&&b.r===1?1:0)),pp=proj(q,rr);
+      if(pp[2]>0||rr<.99){pen?g.lineTo(pp[0],pp[1]):g.moveTo(pp[0],pp[1]);pen=true}else pen=false}
+    g.stroke();g.globalAlpha=1;g.lineWidth=1}
+  for(i=0;i<=ST.k;i++){var c=pt(st[i]),q2=proj(c.v,c.r);if(q2[2]<=0&&c.r===1)continue;var col=(byId[st[i][3]]||{}).color||"#f3a83a",cur=i===ST.k;
+    if(cur){g.strokeStyle=col;g.lineWidth=2;g.globalAlpha=1-pulse;g.beginPath();g.arc(q2[0],q2[1],8+pulse*26,0,7);g.stroke();g.globalAlpha=1;g.lineWidth=1}
+    g.fillStyle="#061219";g.beginPath();g.arc(q2[0],q2[1],cur?9:6,0,7);g.fill();g.fillStyle=col;g.beginPath();g.arc(q2[0],q2[1],cur?7:4,0,7);g.fill();
+    g.fillStyle="#061219";g.font="700 "+(cur?10:8)+"px 'IBM Plex Mono',monospace";g.textAlign="center";g.textBaseline="middle";g.fillText(i+1,q2[0],q2[1]+.5);g.textAlign="left";g.textBaseline="alphabetic"}}
+/* ---------- battle ---------- */
+var VA="godzilla",VB="kong";
+function openVs(id){if(id){id=base(id);if(id===VB)VB=VA;VA=id}VA=base(VA);VB=base(VB);if(!byId[VA])VA=D.titans[0].id;if(!byId[VB]||VB===VA)VB=(D.titans.filter(function(t){return t.id!==VA&&!VARIANT[t.id]&&!t.monarch_file})[0]||{}).id;$("vs").classList.add("on");renderVs()}
+function closeVs(){$("vs").classList.remove("on");G3.vsPending=null;if(G3.api)G3.api.vsEnd()}
+$("tVs").onclick=function(){openVs(S.sel)};$("vsClose").onclick=closeVs;
+$("vs").addEventListener("click",function(e){if(e.target===this)closeVs()});
+document.addEventListener("keydown",function(e){if(e.key!=="Escape")return;if($("vs").classList.contains("on"))closeVs();else close3D()});
+function side(el,t,which){var o=D.titans.filter(function(x){return!x.monarch_file&&!VARIANT[x.id]}).map(function(x){return"<option value='"+x.id+"'"+(x.id===t.id?" selected":"")+">"+esc(x.name_cn.replace(/（.*?）/g,""))+" "+esc(x.name_en.replace(/\s*\(.*?\)/g,""))+"</option>"}).join("");
+  el.style.setProperty("--c",t.color);el.innerHTML="<select id='sel"+which+"' aria-label='选择泰坦 "+which+"'>"+o+"</select><div class='big'>"+esc(t.name_cn.replace(/（.*?）/g,""))+"</div><div class='sub'>"+esc(t.designation||t.name_en)+"</div><div class='score'>"+score(t).toFixed(1)+"</div><div class='eyebrow'>综合战力 · "+num(t.height_m)+" m · "+num(t.weight_t)+" t</div><ul class='plain' style='--c:"+t.color+"'>"+(t.feats||[]).map(function(f){return"<li>"+esc(f)+"</li>"}).join("")+"</ul>";
+  $("sel"+which).onchange=function(){if(which==="A")VA=this.value;else VB=this.value;renderVs()}}
+function renderVs(){var a=byId[VA],b=byId[VB];side($("sA"),a,"A");side($("sB"),b,"B");if(G3.ready)G3.api.vs(VA,VB);else{G3.vsPending=[VA,VB];$("vsLoad").textContent="载入 3D 引擎 …";init3D()}
+  var sa=score(a),sb=score(b),p=1/(1+Math.exp(-(sa-sb)/12)),h="";
+  STAT.forEach(function(s){var x=a.stats[s[0]]||0,y=b.stats[s[0]]||0;h+="<div class='cmp'><span class='l'><i style='width:"+x+"%;background:"+a.color+";opacity:"+(x>=y?1:.45)+"'></i></span><span class='k'>"+s[1]+"</span><span class='r'><i style='width:"+y+"%;background:"+b.color+";opacity:"+(y>=x?1:.45)+"'></i></span></div>"});
+  var lead=STAT.filter(function(s){return(a.stats[s[0]]||0)>(b.stats[s[0]]||0)}).map(function(s){return s[1]}),lag=STAT.filter(function(s){return(a.stats[s[0]]||0)<(b.stats[s[0]]||0)}).map(function(s){return s[1]});
+  var w=p>=.5?a:b,l=p>=.5?b:a,pw=Math.max(p,1-p),tone=pw>.8?"压倒性优势":pw>.62?"占优":"五五开，胜负看环境与临场";
+  h+="<div class='odds' title='估算胜率'><i style='width:"+(p*100).toFixed(0)+"%;background:"+a.color+"'></i><i style='flex:1;background:"+b.color+"'></i></div>"+
+  "<div style='display:flex;justify-content:space-between;font:500 12px var(--f-mono)'><span>"+esc(a.name_cn)+" "+(p*100).toFixed(0)+"%</span><span>"+(100-p*100).toFixed(0)+"% "+esc(b.name_cn)+"</span></div>"+
+  "<div class='verdict'><b>推演：</b>"+(a.id===b.id?"同一个体。":esc(w.name_cn)+" "+tone+"（估算胜率 "+(pw*100).toFixed(0)+"%）。"+esc(a.name_cn)+" 领先项："+(lead.join("、")||"无")+"；"+esc(b.name_cn)+" 领先项："+(lag.join("、")||"无")+"。")+
+  "<br><span style='color:var(--dim);font-size:12px'>综合战力 = 力量25% + 防御20% + 能量20% + 耐力15% + 速度10% + 智力10%。电影里的胜负还取决于地形、盟友与能量补给，这里只比较纸面数值。"+(a.universe!==b.universe?"两者来自不同宇宙，设定体系不同，仅供娱乐。":"")+"</span></div>";
+  $("cmp").innerHTML=h;radar(a,b)}
+function radar(a,b){var c=$("radar"),r=c.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2),s=r.width||320;c.width=c.height=s*d;var x=c.getContext("2d");x.setTransform(d,0,0,d,0,0);x.clearRect(0,0,s,s);
+  var m=s/2,Rr=s*.36,n=STAT.length,i,k;function pt(i,v){var an=-Math.PI/2+i/n*6.2832;return[m+Math.cos(an)*Rr*v,m+Math.sin(an)*Rr*v]}
+  x.strokeStyle="#1f4350";x.lineWidth=1;for(k=1;k<=4;k++){x.beginPath();for(i=0;i<=n;i++){var p=pt(i%n,k/4);i?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1])}x.stroke()}
+  x.font="500 12px 'Noto Sans SC',sans-serif";x.textAlign="center";x.textBaseline="middle";
+  for(i=0;i<n;i++){var e=pt(i,1);x.beginPath();x.moveTo(m,m);x.lineTo(e[0],e[1]);x.stroke();var q=pt(i,1.17);x.fillStyle="#86a3ad";x.fillText(STAT[i][1],q[0],q[1])}
+  x.font="400 9px 'IBM Plex Mono',monospace";x.fillStyle="#5d7a85";x.textAlign="left";[25,50,75,100].forEach(function(v){x.fillText(v,m+3,m-Rr*v/100)});
+  [a,b].forEach(function(t){x.beginPath();for(i=0;i<=n;i++){var p=pt(i%n,(t.stats[STAT[i%n][0]]||0)/100);i?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1])}x.strokeStyle=t.color;x.lineWidth=2;x.stroke();x.globalAlpha=.16;x.fillStyle=t.color;x.fill();x.globalAlpha=1})}
+
+/* ================= 3D view: ghost scenes of each place ================= */
+function mkc(w,h){var c=document.createElement("canvas");c.width=w;c.height=h;return c}
+function rng(s){return function(){s=(s*16807)%2147483647;return(s-1)/2147483646}}
+/* --- silhouette primitives (white; alpha = density) --- */
+function seaLines(l,w,h,hz,rough){l.lineWidth=1;for(var i=0;i<30;i++){var f=i/30,y=hz+Math.pow(f,1.7)*(h-hz);l.globalAlpha=.18+.55*f;l.beginPath();
+  for(var x=0;x<=w;x+=6){var yy=y+Math.sin(x*(.012+.004*(i%3))+i*1.7)*(1+i*.22*rough)+Math.sin(x*.05+i)*rough*.6;x?l.lineTo(x,yy):l.moveTo(x,yy)}l.stroke()}
+  l.globalAlpha=.9;l.fillRect(0,hz-.5,w,1.5);l.globalAlpha=1}
+function groundLines(l,w,h,gy){l.globalAlpha=.6;l.fillRect(0,gy,w,1.5);l.lineWidth=1;for(var i=0;i<10;i++){var y=gy+Math.pow(i/10,1.5)*(h-gy);l.globalAlpha=.12+.25*i/10;l.beginPath();l.moveTo(0,y);l.lineTo(w,y);l.stroke()}l.globalAlpha=1}
+function hill(l,x0,x1,base,peak,seed,a,sharp){var pts=[],r=rng(seed);l.globalAlpha=a;l.beginPath();l.moveTo(x0,base);
+  var p1=r()*6,p2=r()*6,e=sharp||.75;for(var x=x0;x<=x1;x+=4){var t=(x-x0)/(x1-x0),y=base-peak*Math.pow(Math.sin(Math.PI*t),e)*(1+.12*Math.sin(t*17+p1)+.06*Math.sin(t*41+p2));pts.push([x,y]);l.lineTo(x,y)}
+  l.lineTo(x1,base);l.closePath();l.fill();l.globalAlpha=1;return function(X){for(var i=0;i<pts.length;i++)if(pts[i][0]>=X)return pts[i][1];return base}}
+function poly(l,pts,a){var pa=l.globalAlpha;if(a!=null)l.globalAlpha=a;l.beginPath();l.moveTo(pts[0],pts[1]);for(var i=2;i<pts.length;i+=2)l.lineTo(pts[i],pts[i+1]);l.closePath();l.fill();l.globalAlpha=pa}
+function cut(l,fn){l.globalCompositeOperation="destination-out";fn();l.globalCompositeOperation="source-over"}
+function torii(l,x,y,s){l.fillRect(x-s*.36,y-s*.9,s*.07,s*.9);l.fillRect(x+s*.29,y-s*.9,s*.07,s*.9);l.fillRect(x-s*.5,y-s*.74,s,s*.06);
+  l.beginPath();l.moveTo(x-s*.66,y-s*1.02);l.quadraticCurveTo(x,y-s*.9,x+s*.66,y-s*1.02);l.lineTo(x+s*.6,y-s*.92);l.quadraticCurveTo(x,y-s*.82,x-s*.6,y-s*.92);l.closePath();l.fill();l.fillRect(x-s*.03,y-s*.92,s*.06,s*.18)}
+function pine(l,x,y,s,r){l.lineWidth=s*.05;l.beginPath();l.moveTo(x,y);l.quadraticCurveTo(x+s*.15*r,y-s*.5,x+s*.05*r,y-s);l.stroke();
+  [[.0,1,.42],[.12*r,.72,.34],[-.1*r,.5,.28],[.18*r,.32,.22]].forEach(function(e){l.beginPath();l.ellipse(x+e[0]*s,y-e[1]*s,e[2]*s,e[2]*s*.32,0,0,7);l.fill()})}
+function palm(l,x,y,s,lean){var tx=x+lean*s*.45,ty=y-s;l.lineWidth=s*.045;l.beginPath();l.moveTo(x,y);l.quadraticCurveTo(x+lean*s*.05,y-s*.6,tx,ty);l.stroke();l.lineWidth=s*.03;
+  for(var k=0;k<7;k++){var a=-Math.PI*.95+k*Math.PI*.95/6+(k%2)*.15,len=s*(.42+.1*(k%3));l.beginPath();l.moveTo(tx,ty);l.quadraticCurveTo(tx+Math.cos(a)*len*.6,ty+Math.sin(a)*len*.6-s*.08,tx+Math.cos(a)*len,ty+Math.sin(a)*len*.5+s*.18);l.stroke()}}
+function plane(l,x,y,s){l.beginPath();l.ellipse(x,y,s*.5,s*.065,0,0,7);l.fill();l.beginPath();l.ellipse(x+s*.08,y-s*.06,s*.12,s*.05,0,Math.PI,0);l.fill();
+  l.beginPath();l.moveTo(x-s*.38,y);l.lineTo(x-s*.52,y-s*.2);l.lineTo(x-s*.46,y);l.fill();l.beginPath();l.ellipse(x+s*.02,y+s*.03,s*.26,s*.025,0,0,7);l.fill();
+  l.fillRect(x+s*.49,y-s*.16,s*.015,s*.32);l.fillRect(x+s*.05,y+s*.05,s*.012,s*.12);l.fillRect(x-s*.42,y+s*.04,s*.01,s*.06)}
+function heli(l,x,y,s){l.beginPath();l.ellipse(x,y,s*.3,s*.12,0,0,7);l.fill();l.fillRect(x-s*.75,y-s*.03,s*.5,s*.05);l.fillRect(x-s*.8,y-s*.14,s*.04,s*.16);l.fillRect(x-s*.6,y-s*.2,s*1.2,s*.02);l.fillRect(x-s*.01,y-s*.2,s*.02,s*.1);l.fillRect(x-s*.2,y+s*.16,s*.4,s*.02)}
+function quonset(l,x,y,s){l.beginPath();l.moveTo(x-s*.5,y);l.bezierCurveTo(x-s*.5,y-s*.45,x+s*.5,y-s*.45,x+s*.5,y);l.closePath();l.fill();cut(l,function(){l.fillRect(x-s*.12,y-s*.2,s*.24,s*.2)})}
+function ship(l,x,y,s,dir){l.save();l.translate(x,y);l.scale(dir||1,1);l.beginPath();l.moveTo(-s*.5,0);l.lineTo(s*.47,0);l.lineTo(s*.56,-s*.065);l.lineTo(s*.22,-s*.07);l.lineTo(-s*.46,-s*.06);l.lineTo(-s*.53,-s*.045);l.closePath();l.fill();
+  l.fillRect(s*.06,-s*.14,s*.15,s*.08);l.fillRect(s*.1,-s*.2,s*.06,s*.07);l.fillRect(-s*.07,-s*.16,s*.045,s*.1);l.fillRect(-s*.17,-s*.15,s*.045,s*.09);
+  l.fillRect(s*.13,-s*.32,s*.008,s*.13);l.fillRect(-s*.26,-s*.24,s*.006,s*.18);l.fillRect(-s*.4,-s*.1,s*.09,s*.045);l.fillRect(-s*.42,-s*.085,s*.08,s*.01);l.fillRect(s*.3,-s*.1,s*.08,s*.04);l.restore()}
+function boat(l,x,y,s){l.beginPath();l.moveTo(x-s*.5,y-s*.12);l.quadraticCurveTo(x-s*.1,y+s*.08,x+s*.5,y-s*.18);l.lineTo(x+s*.45,y-s*.06);l.quadraticCurveTo(x,y+s*.12,x-s*.42,y);l.closePath();l.fill();
+  l.fillRect(x-s*.12,y-s*.34,s*.22,s*.24);l.fillRect(x+s*.2,y-s*.7,s*.02,s*.6);l.lineWidth=1;l.beginPath();l.moveTo(x+s*.21,y-s*.7);l.lineTo(x-s*.45,y-s*.1);l.moveTo(x+s*.21,y-s*.7);l.lineTo(x+s*.48,y-s*.17);l.stroke()}
+function puffs(l,cx,cy,rw,rh,n,seed,a){var r=rng(seed);l.globalAlpha=a;for(var i=0;i<n;i++){var ang=r()*6.28,d=Math.sqrt(r());l.beginPath();l.arc(cx+Math.cos(ang)*rw*d,cy+Math.sin(ang)*rh*d,(.25+.5*r())*Math.min(rw,rh)*.7,0,7);l.fill()}l.globalAlpha=1}
+function mushroom(l,x,base,s){l.globalAlpha=.75;l.beginPath();l.moveTo(x-s*.22,base);l.bezierCurveTo(x-s*.06,base-s*.3,x-s*.1,base-s*.6,x-s*.08,base-s*.78);l.lineTo(x+s*.08,base-s*.78);l.bezierCurveTo(x+s*.1,base-s*.6,x+s*.06,base-s*.3,x+s*.22,base);l.closePath();l.fill();
+  puffs(l,x,base-s*.92,s*.36,s*.17,34,7,.55);puffs(l,x,base-s*.86,s*.26,s*.1,18,9,.6);puffs(l,x,base-s*.02,s*.42,s*.05,26,4,.45);
+  l.globalAlpha=.5;l.lineWidth=2;l.beginPath();l.ellipse(x,base-s*.5,s*.2,s*.035,0,0,7);l.stroke();l.globalAlpha=1}
+function block(l,x,y,w,h,r,win){l.fillRect(x,y-h,w,h);if(!win)return;cut(l,function(){var cw=Math.max(3,w/7),ch=Math.max(3,h/14);
+  for(var yy=y-h+ch*.7;yy<y-ch;yy+=ch*1.6)for(var xx=x+cw*.5;xx<x+w-cw;xx+=cw*1.5)if(r()>.35)l.fillRect(xx,yy,cw*.7,ch*.8)})}
+function tower(l,x,y,w,h,r,kind){block(l,x,y,w,h,r,true);var c=x+w/2;
+  if(kind===1){l.fillRect(c-w*.02,y-h-h*.18,Math.max(1.5,w*.04),h*.18)}
+  else if(kind===2){poly(l,[x,y-h,c,y-h-w*.9,x+w,y-h])}
+  else if(kind===3){l.fillRect(x+w*.15,y-h-h*.08,w*.7,h*.08);l.fillRect(x+w*.3,y-h-h*.14,w*.4,h*.06);l.fillRect(c-1,y-h-h*.26,2,h*.12)}
+  else if(kind===4){poly(l,[x,y-h,x+w,y-h-w*.5,x+w,y-h])}}
+function skyline(l,w,gy,seed,n,hmin,hmax,a,landmarkGap){var r=rng(seed),x=-w*.02;l.globalAlpha=a;
+  while(x<w){var bw=w*(.025+r()*.045),bh=hmin+r()*(hmax-hmin);if(landmarkGap&&x>landmarkGap[0]&&x<landmarkGap[1]){x=landmarkGap[1];continue}
+    tower(l,x,gy,bw,bh,r,r()<.25?Math.floor(r()*4)+1:0);x+=bw+w*.003}l.globalAlpha=1}
+function clockTower(l,x,y,s){l.beginPath();l.moveTo(x-s*.5,y);l.lineTo(x-s*.5,y-s*.62);l.quadraticCurveTo(x,y-s*.74,x+s*.5,y-s*.62);l.lineTo(x+s*.5,y);l.closePath();l.fill();
+  l.fillRect(x-s*.17,y-s*1.02,s*.34,s*.38);l.fillRect(x-s*.12,y-s*1.12,s*.24,s*.1);l.beginPath();l.moveTo(x-s*.1,y-s*1.12);l.quadraticCurveTo(x,y-s*1.28,x+s*.1,y-s*1.12);l.fill();l.fillRect(x-s*.006,y-s*1.36,s*.012,s*.12);
+  cut(l,function(){l.beginPath();l.arc(x,y-s*.86,s*.1,0,7);l.fill();for(var i=0;i<6;i++){l.fillRect(x-s*.42+i*s*.145,y-s*.52,s*.07,s*.14);l.fillRect(x-s*.42+i*s*.145,y-s*.3,s*.07,s*.14)}});
+  l.lineWidth=Math.max(1,s*.012);l.beginPath();l.moveTo(x,y-s*.86);l.lineTo(x,y-s*.94);l.moveTo(x,y-s*.86);l.lineTo(x+s*.05,y-s*.84);l.stroke()}
+function beam(l,x,y,ang,len,wd,a){l.globalAlpha=a;l.beginPath();l.moveTo(x,y);l.lineTo(x+Math.cos(ang-wd)*len,y+Math.sin(ang-wd)*len);l.lineTo(x+Math.cos(ang+wd)*len,y+Math.sin(ang+wd)*len);l.closePath();l.fill();l.globalAlpha=1}
+function pyramid(l,x,y,s,a){poly(l,[x-s*.5,y,x,y-s*.62,x+s*.5,y],a);l.globalAlpha=(a||1)*.5;l.lineWidth=1;for(var i=1;i<8;i++){var yy=y-s*.62*i/8,hw=s*.5*(1-i/8);cut(l,function(){l.fillRect(x-hw,yy,hw*2,1)})}l.globalAlpha=1}
+function dome(l,x,y,w,h){l.beginPath();l.ellipse(x,y,w/2,h,0,Math.PI,0);l.closePath();l.fill()}
+function bolt(l,x,y,len,seed){var r=rng(seed);l.lineWidth=2;l.beginPath();l.moveTo(x,y);for(var i=0;i<7;i++){x+=(r()-.5)*len*.25;y+=len/7;l.lineTo(x,y)}l.stroke()}
+function rain(l,w,h,top,n,a){l.globalAlpha=a;for(var i=0;i<n;i++){var x=(i*97)%w,y=(i*53)%top;l.fillRect(x,y,1,h*.024)}l.globalAlpha=1}
+function iceCliffs(l,w,base,seed,hmax,a){var r=rng(seed),x=0;l.globalAlpha=a;l.beginPath();l.moveTo(0,base);while(x<w){l.lineTo(x,base-hmax*(.5+.5*r()));x+=w*(.02+.04*r());l.lineTo(x,base-hmax*(.3+.7*r()))}l.lineTo(w,base);l.closePath();l.fill();l.globalAlpha=1}
+function aurora(l,w,h,a){for(var k=0;k<3;k++){l.globalAlpha=a*(1-k*.25);l.lineWidth=h*.012*(3-k);l.beginPath();for(var x=0;x<=w;x+=8){var y=h*(.16+k*.05)+Math.sin(x*.006+k)*h*.05+Math.sin(x*.017)*h*.015;x?l.lineTo(x,y):l.moveTo(x,y)}l.stroke()}
+  l.globalAlpha=a*.35;for(var i=0;i<60;i++){var x=i*w/60,y=h*.16+Math.sin(x*.006)*h*.05;l.fillRect(x,y,1.5,h*.12)}l.globalAlpha=1}
+function volcano(l,x,y,s,plume){poly(l,[x-s*.8,y,x-s*.12,y-s*.55,x+s*.12,y-s*.55,x+s*.8,y],.75);if(plume){puffs(l,x,y-s*.75,s*.25,s*.2,26,3,.4);puffs(l,x+s*.15,y-s*1.05,s*.35,s*.16,30,5,.3)}
+  l.globalAlpha=.9;l.lineWidth=2;for(var i=0;i<4;i++){l.beginPath();l.moveTo(x-s*.08+i*s*.05,y-s*.55);l.quadraticCurveTo(x-s*.2+i*s*.12,y-s*.3,x-s*.3+i*s*.2,y-s*.02);l.stroke()}l.globalAlpha=1}
+function church(l,x,y,s){l.fillRect(x-s*.3,y-s*.4,s*.6,s*.4);poly(l,[x-s*.34,y-s*.4,x,y-s*.62,x+s*.34,y-s*.4]);l.fillRect(x+s*.12,y-s*.9,s*.16,s*.5);poly(l,[x+s*.1,y-s*.9,x+s*.2,y-s*1.05,x+s*.3,y-s*.9]);
+  l.fillRect(x+s*.195,y-s*1.25,s*.012,s*.2);l.fillRect(x+s*.15,y-s*1.19,s*.1,s*.012)}
+function pagoda(l,x,y,s){for(var i=0;i<4;i++){var yy=y-i*s*.28,ww=s*(.9-i*.16);l.fillRect(x-ww*.32,yy-s*.2,ww*.64,s*.2);l.beginPath();l.moveTo(x-ww*.6,yy-s*.18);l.quadraticCurveTo(x,yy-s*.36,x+ww*.6,yy-s*.18);l.lineTo(x+ww*.45,yy-s*.26);l.lineTo(x-ww*.45,yy-s*.26);l.closePath();l.fill()}
+  l.fillRect(x-1,y-s*1.35,2,s*.3)}
+function waterfall(l,x,top,bot,wd,a){l.globalAlpha=a;for(var i=0;i<14;i++){var xx=x-wd/2+wd*i/13;l.fillRect(xx,top,1.2,bot-top)}puffs(l,x,bot,wd*.9,wd*.25,22,6,a*.6);l.globalAlpha=1}
+function suspBridge(l,x0,x1,deck,towerH){var t1=x0+(x1-x0)*.28,t2=x0+(x1-x0)*.72,tw=(x1-x0)*.012;l.fillRect(x0,deck,x1-x0,towerH*.05);
+  [t1,t2].forEach(function(t){l.fillRect(t-tw,deck-towerH,tw*.7,towerH*1.25);l.fillRect(t+tw*.3,deck-towerH,tw*.7,towerH*1.25);for(var k=0;k<4;k++)l.fillRect(t-tw,deck-towerH+k*towerH*.28,tw*2,towerH*.03)});
+  l.lineWidth=1.5;l.beginPath();l.moveTo(x0,deck-towerH*.15);l.quadraticCurveTo((x0+t1)/2,deck-towerH*.2,t1,deck-towerH);l.quadraticCurveTo((t1+t2)/2,deck+towerH*.5,t2,deck-towerH);l.quadraticCurveTo((t2+x1)/2,deck-towerH*.2,x1,deck-towerH*.15);l.stroke();
+  l.lineWidth=.8;for(var x=t1;x<t2;x+=(t2-t1)/30){var f=(x-t1)/(t2-t1),cy=deck-towerH+towerH*4*f*(1-f)*.75*1.33*.75;l.beginPath();l.moveTo(x,cy);l.lineTo(x,deck);l.stroke()}}
+function coolingTower(l,x,y,s){l.beginPath();l.moveTo(x-s*.42,y);l.quadraticCurveTo(x-s*.18,y-s*.55,x-s*.3,y-s);l.lineTo(x+s*.3,y-s);l.quadraticCurveTo(x+s*.18,y-s*.55,x+s*.42,y);l.closePath();l.fill()}
+function crane(l,x,y,s){l.lineWidth=Math.max(1,s*.02);l.fillRect(x,y-s,s*.04,s);l.fillRect(x-s*.3,y-s,s*1,s*.03);l.beginPath();l.moveTo(x+s*.02,y-s*1.12);l.lineTo(x-s*.3,y-s*.98);l.moveTo(x+s*.02,y-s*1.12);l.lineTo(x+s*.7,y-s*.98);l.stroke();l.fillRect(x+s*.55,y-s*.97,1,s*.35);l.fillRect(x+s*.52,y-s*.63,s*.06,s*.05)}
+function mesa(l,x,y,w,h,a){poly(l,[x,y,x+w*.12,y-h,x+w*.2,y-h*1.03,x+w*.78,y-h*1.03,x+w*.86,y-h,x+w,y],a)}
+function butte(l,x,y,w,h,a){poly(l,[x,y,x+w*.2,y-h*.4,x+w*.3,y-h,x+w*.55,y-h*1.05,x+w*.62,y-h*.7,x+w*.8,y-h*.45,x+w,y],a)}
+function colosseum(l,x,y,w,h){l.beginPath();l.moveTo(x,y);l.lineTo(x,y-h*.75);l.lineTo(x+w*.55,y-h);l.lineTo(x+w,y-h*.92);l.lineTo(x+w,y-h*.4);l.lineTo(x+w*.85,y-h*.3);l.lineTo(x+w*.82,y);l.closePath();l.fill();
+  cut(l,function(){for(var t=0;t<3;t++)for(var i=0;i<14;i++){var ax=x+w*.03+i*w*.066,ay=y-h*(.06+t*.25),top=y-h*(.06+t*.25)-h*.16;if(ax>x+w*.8&&t<2)continue;if(t==2&&ax<x+w*.08)continue;l.beginPath();l.moveTo(ax,ay);l.lineTo(ax,top+h*.03);l.arc(ax+w*.02,top+h*.03,w*.02,Math.PI,0);l.lineTo(ax+w*.04,ay);l.closePath();l.fill()}})}
+function obelisk(l,x,y,w,h){poly(l,[x-w/2,y,x-w*.38,y-h,x,y-h-w*.6,x+w*.38,y-h,x+w/2,y])}
+function capitol(l,x,y,s){l.fillRect(x-s*.9,y-s*.22,s*1.8,s*.22);l.fillRect(x-s*.3,y-s*.4,s*.6,s*.18);l.fillRect(x-s*.22,y-s*.5,s*.44,s*.1);dome(l,x,y-s*.5,s*.42,s*.3);l.fillRect(x-s*.03,y-s*.88,s*.06,s*.1);l.fillRect(x-s*.01,y-s*.98,s*.02,s*.1);
+  cut(l,function(){for(var i=0;i<16;i++)l.fillRect(x-s*.85+i*s*.11,y-s*.18,s*.04,s*.14);for(i=0;i<8;i++)l.fillRect(x-s*.2+i*s*.055,y-s*.48,s*.02,s*.06)})}
+function stratTower(l,x,y,s){l.fillRect(x-s*.02,y-s,s*.04,s);l.beginPath();l.ellipse(x,y-s*.88,s*.09,s*.04,0,0,7);l.fill();l.fillRect(x-s*.06,y-s*.86,s*.12,s*.04);l.fillRect(x-s*.006,y-s*1.12,s*.012,s*.24)}
+function statue(l,x,y,s){l.fillRect(x-s*.06,y-s*.7,s*.12,s*.7);l.fillRect(x-s*.42,y-s*.62,s*.84,s*.08);l.beginPath();l.arc(x,y-s*.76,s*.07,0,7);l.fill();poly(l,[x-s*.09,y,x+s*.09,y,x+s*.06,y-s*.4,x-s*.06,y-s*.4])}
+function floatRock(l,x,y,w,h,seed,a){var r=rng(seed);l.globalAlpha=a;l.beginPath();l.moveTo(x-w/2,y);for(var i=0;i<=8;i++){l.lineTo(x-w/2+w*i/8,y-h*.15*r())}l.lineTo(x+w/2,y);l.lineTo(x+w*.15,y+h*(.7+.3*r()));l.lineTo(x-w*.1,y+h);l.closePath();l.fill();l.globalAlpha=1}
+function crystal(l,x,y,s,ang){l.save();l.translate(x,y);l.rotate(ang);poly(l,[-s*.12,0,-s*.1,-s*.8,0,-s,s*.1,-s*.8,s*.12,0]);l.restore()}
+function sphinx(l,x,y,s){l.fillRect(x-s*.5,y-s*.12,s*.8,s*.12);l.beginPath();l.ellipse(x-s*.1,y-s*.12,s*.4,s*.1,0,Math.PI,0);l.fill();l.fillRect(x+s*.2,y-s*.36,s*.14,s*.3);poly(l,[x+s*.17,y-s*.24,x+s*.27,y-s*.42,x+s*.37,y-s*.24]);l.fillRect(x+s*.3,y-s*.06,s*.3,s*.06)}
+function quarry(l,w,gy,h){for(var i=0;i<6;i++){var yy=gy+i*h*.035,ins=w*.08+i*w*.05;l.globalAlpha=.5-i*.05;l.fillRect(ins,yy,w-ins*2,h*.012)}l.globalAlpha=1}
+/* --- scenes: draw(l,w,h) --- */
+var SCN={
+odo:function(l,w,h){var hz=h*.66,u=h/100;hill(l,w*.18,w*.82,hz,h*.08,11,.35);var L=hill(l,-w*.06,w*.44,hz,h*.2,3,.6),R=hill(l,w*.6,w*1.08,hz,h*.15,5,.55);
+  for(var i=0;i<7;i++){var x=w*(.02+i*.055);pine(l,x,L(x)+u*1.5,u*(5+(i%3)*1.6),i%2?1:-1)}for(i=0;i<5;i++){x=w*(.66+i*.07);pine(l,x,R(x)+u*1.5,u*(4.5+(i%2)*2),i%2?-1:1)}
+  seaLines(l,w,h,hz,.6);torii(l,w*.8,hz+u*6,u*17);quonset(l,w*.12,hz+u*3,w*.13);plane(l,w*.26,hz+u*6.5,u*12);l.globalAlpha=.5;l.beginPath();l.arc(w*.68,h*.2,u*5,0,7);l.fill();l.globalAlpha=1},
+bikini:function(l,w,h){var hz=h*.62,u=h/100;mushroom(l,w*.7,hz,h*.56);l.globalAlpha=.75;l.lineWidth=u*1.2;l.beginPath();l.ellipse(w*.36,hz+u*4,w*.3,u*3.2,0,0,7);l.stroke();l.globalAlpha=1;
+  [[.1,0,-.3],[.17,1,.4],[.47,2,-.2],[.58,3,.3],[.26,0,.2]].forEach(function(p,i){palm(l,w*p[0],hz+u*(1.5+(i%2)*4.5),u*(6+p[1]*1.2),p[2])});
+  seaLines(l,w,h,hz,.4);ship(l,w*.06,hz,w*.07,1);ship(l,w*.92,hz,w*.06,-1);ship(l,w*.86,hz+u,w*.045,-1);l.globalAlpha=.35;l.lineWidth=1.5;for(var k=1;k<4;k++){l.beginPath();l.ellipse(w*.7,hz+u*5,w*.08*k,u*2.4*k,0,0,7);l.stroke()}l.globalAlpha=1},
+ginza:function(l,w,h){var gy=h*.72,u=h/100,r=rng(42),x;beam(l,w*.12,gy,-1.25,h*.9,.035,.22);beam(l,w*.9,gy,-1.95,h*.9,.03,.2);beam(l,w*.55,gy,-1.62,h*.8,.025,.14);
+  puffs(l,w*.84,h*.3,w*.07,h*.2,26,3,.28);puffs(l,w*.2,h*.36,w*.06,h*.16,20,8,.25);
+  l.globalAlpha=.35;for(x=0;x<w;){var bw=w*(.03+r()*.05),bh=h*(.08+r()*.16);block(l,x,gy-u*2,bw,bh,r,false);x+=bw*.9}
+  l.globalAlpha=.75;for(x=-w*.02;x<w;){bw=w*(.04+r()*.06);bh=h*(.06+r()*.14);if(x>w*.2&&x<w*.42){x=w*.42;continue}block(l,x,gy,bw,bh,r,true);if(r()>.7)poly(l,[x,gy-bh,x+bw*.4,gy-bh-u*3,x+bw*.7,gy-bh-u,x+bw,gy-bh],.75);l.globalAlpha=.75;x+=bw+w*.004}
+  l.globalAlpha=.95;clockTower(l,w*.31,gy,h*.26);var vy=gy-h*.035;l.fillRect(0,vy-u*1.6,w,u*1.6);cut(l,function(){for(x=w*.01;x<w;x+=w*.06){l.beginPath();l.ellipse(x+w*.025,vy+u*2.6,w*.022,u*2.4,0,Math.PI,0);l.fill()}});
+  for(x=0;x<w;x+=w*.06)l.fillRect(x,vy,w*.007,gy-vy);for(var c=0;c<3;c++){var tx=w*(.52+c*.105);l.fillRect(tx,vy-u*4.4,w*.1,u*3.6);cut(l,function(){for(var k=0;k<6;k++)l.fillRect(tx+w*.008+k*w*.015,vy-u*3.8,w*.009,u*1.4)})}
+  groundLines(l,w,h,gy)},
+sagami:function(l,w,h){var hz=h*.6,u=h/100;puffs(l,w*.25,h*.12,w*.3,h*.1,40,5,.22);puffs(l,w*.78,h*.08,w*.28,h*.09,36,6,.2);l.globalAlpha=.6;bolt(l,w*.62,h*.14,h*.3,4);l.globalAlpha=1;
+  hill(l,w*.7,w*1.1,hz,h*.07,9,.4);seaLines(l,w,h,hz,2.4);ship(l,w*.2,hz+u*.5,w*.15,1);ship(l,w*.42,hz,w*.11,1);ship(l,w*.88,hz+u*.3,w*.1,-1);boat(l,w*.1,hz+u*16,u*13);rain(l,w,h,hz*.9,60,.4)},
+jungle:function(l,w,h){var hz=h*.64,u=h/100;puffs(l,w*.5,h*.16,w*.6,h*.12,60,2,.18);l.globalAlpha=.35;l.lineWidth=u*.6;l.beginPath();l.ellipse(w*.5,h*.3,w*.62,h*.22,0,Math.PI*1.05,Math.PI*1.95);l.stroke();l.globalAlpha=1;
+  hill(l,w*.3,w*.75,hz,h*.36,7,.45,.5);var A=hill(l,-w*.05,w*.38,hz,h*.28,4,.7,.6),B=hill(l,w*.6,w*1.05,hz,h*.32,8,.7,.55);
+  cut(l,function(){l.beginPath();l.ellipse(w*.13,hz-h*.17,w*.025,h*.025,0,0,7);l.ellipse(w*.21,hz-h*.17,w*.025,h*.025,0,0,7);l.fill();l.beginPath();l.moveTo(w*.17,hz-h*.13);l.lineTo(w*.16,hz-h*.1);l.lineTo(w*.18,hz-h*.1);l.fill()});
+  waterfall(l,w*.72,hz-h*.24,hz,w*.025,.7);puffs(l,w*.5,hz+u*2,w*.6,u*5,90,12,.55);for(var i=0;i<9;i++)palm(l,w*(.04+i*.115),hz+u*7,u*(9+(i%3)*2),(i%2?.3:-.3));
+  seaLines(l,w,h,hz+u*8,.8);heli(l,w*.3,h*.24,u*5);heli(l,w*.4,h*.2,u*4);heli(l,w*.52,h*.26,u*4.4)},
+ice:function(l,w,h){var hz=h*.62,u=h/100;aurora(l,w,h,.6);hill(l,-w*.1,w*.6,hz,h*.14,3,.35,.4);hill(l,w*.4,w*1.1,hz,h*.18,6,.35,.5);iceCliffs(l,w,hz+u*3,9,h*.1,.8);
+  l.globalAlpha=.9;dome(l,w*.7,hz+u*8,w*.12,h*.07);l.fillRect(w*.58,hz+u*4,w*.07,u*4);l.fillRect(w*.79,hz+u*3,w*.05,u*5);l.fillRect(w*.735,hz-u*3,2,u*6);l.fillRect(w*.62,hz-u*1,1.5,u*5);
+  cut(l,function(){for(var i=0;i<5;i++)l.fillRect(w*.645+i*w*.022,hz+u*5,w*.008,u*1.5)});l.globalAlpha=1;
+  l.lineWidth=1;for(var i=0;i<18;i++){var y=hz+u*9+Math.pow(i/18,1.6)*(h-hz-u*9);l.globalAlpha=.1+.2*i/18;l.beginPath();for(var x=0;x<=w;x+=20){var yy=y+((x*7+i*13)%11-5)*.4;x?l.lineTo(x,yy):l.moveTo(x,yy)}l.stroke()}l.globalAlpha=1;
+  rain(l,w,h,h,90,.25)},
+hk:function(l,w,h){var gy=h*.66,u=h/100;hill(l,-w*.1,w*1.1,gy-u*2,h*.3,5,.3,.6);skyline(l,w,gy,17,0,h*.12,h*.3,.55);l.globalAlpha=.85;
+  tower(l,w*.62,gy,w*.05,h*.48,rng(3),3);tower(l,w*.35,gy,w*.045,h*.4,rng(5),2);tower(l,w*.45,gy,w*.04,h*.34,rng(8),1);l.globalAlpha=1;seaLines(l,w,h,gy,.5);boat(l,w*.2,gy+u*10,u*8);
+  for(var i=0;i<4;i++)beam(l,w*(.15+i*.25),gy,-1.3-i*.2,h*.7,.02,.12)},
+boston:function(l,w,h){var gy=h*.66,u=h/100;puffs(l,w*.5,h*.1,w*.6,h*.12,70,9,.2);bolt(l,w*.3,h*.14,h*.32,7);bolt(l,w*.78,h*.12,h*.26,11);skyline(l,w,gy,23,0,h*.08,h*.24,.6,[w*.4,w*.62]);
+  l.globalAlpha=.9;tower(l,w*.42,gy,w*.06,h*.42,rng(4),1);block(l,w*.52,gy,w*.07,h*.48,rng(6),true);cut(l,function(){l.fillRect(w*.553,gy-h*.48,w*.004,h*.48)});l.globalAlpha=1;
+  seaLines(l,w,h,gy,1.2);rain(l,w,h,gy,110,.35);heli(l,w*.2,h*.3,u*4)},
+giza:function(l,w,h){var gy=h*.68,u=h/100;l.globalAlpha=.5;l.beginPath();l.arc(w*.8,h*.2,u*6,0,7);l.fill();l.globalAlpha=1;pyramid(l,w*.32,gy,w*.42,.85);pyramid(l,w*.62,gy,w*.34,.7);pyramid(l,w*.82,gy,w*.16,.6);
+  sphinx(l,w*.12,gy,w*.16);skyline(l,w,gy+u*6,31,0,h*.02,h*.06,.45);for(var i=0;i<5;i++)palm(l,w*(.04+i*.06),gy+u*8,u*(6+i%2*2),i%2?.3:-.2);groundLines(l,w,h,gy+u*8)},
+rio:function(l,w,h){var hz=h*.66,u=h/100;var C=hill(l,w*.05,w*.45,hz,h*.4,3,.55,.5);statue(l,w*.25,hz-h*.39,h*.1);l.globalAlpha=.75;l.beginPath();l.moveTo(w*.6,hz);l.bezierCurveTo(w*.6,hz-h*.36,w*.76,hz-h*.36,w*.76,hz);l.fill();l.globalAlpha=1;
+  hill(l,w*.78,w*1.05,hz,h*.12,6,.5);l.lineWidth=1;l.globalAlpha=.6;l.beginPath();l.moveTo(w*.68,hz-h*.31);l.quadraticCurveTo(w*.74,hz-h*.18,w*.85,hz-h*.11);l.stroke();l.globalAlpha=1;
+  skyline(l,w,hz,41,0,h*.03,h*.08,.6);seaLines(l,w,h,hz,.6);for(var i=0;i<6;i++)palm(l,w*(.05+i*.17),hz+u*12,u*(7+i%2*2),i%2?.25:-.25)},
+hollow:function(l,w,h){var u=h/100;l.globalAlpha=.4;l.beginPath();l.arc(w*.5,h*.42,u*9,0,7);l.fill();l.globalAlpha=.18;l.beginPath();l.arc(w*.5,h*.42,u*16,0,7);l.fill();l.globalAlpha=1;
+  floatRock(l,w*.15,h*.06,w*.24,h*.2,3,.55);floatRock(l,w*.82,h*.04,w*.3,h*.24,5,.55);floatRock(l,w*.5,h*.0,w*.18,h*.12,7,.4);floatRock(l,w*.32,h*.3,w*.08,h*.06,9,.5);floatRock(l,w*.7,h*.33,w*.1,h*.07,11,.5);
+  var gy=h*.7;hill(l,-w*.05,w*.4,gy,h*.24,4,.6,1.4);hill(l,w*.55,w*1.05,gy,h*.3,8,.6,1.6);for(var i=0;i<7;i++)crystal(l,w*(.08+i*.14),gy+u*3,h*(.1+.05*(i%3)),(i-3)*.12);
+  l.globalAlpha=.6;l.lineWidth=1;for(i=0;i<5;i++){l.beginPath();l.moveTo(w*(.1+i*.2),gy);l.quadraticCurveTo(w*(.2+i*.2),gy-h*.4,w*.5,h*.42);l.stroke()}l.globalAlpha=1;groundLines(l,w,h,gy+u*3)},
+temple:function(l,w,h){var gy=h*.7,u=h/100;var A=hill(l,-w*.05,w*.4,gy,h*.5,3,.55,.35),B=hill(l,w*.62,w*1.05,gy,h*.46,6,.55,.35);waterfall(l,w*.36,gy-h*.42,gy,w*.04,.6);waterfall(l,w*.66,gy-h*.36,gy,w*.03,.5);
+  puffs(l,w*.5,gy-h*.05,w*.45,h*.07,60,4,.25);pagoda(l,w*.52,gy-h*.02,h*.2);l.fillRect(w*.4,gy-h*.02,w*.24,u*1.5);for(var i=0;i<8;i++){var x=w*(.42+i*.03);l.fillRect(x,gy-h*.02,2,u*3)}
+  for(i=0;i<6;i++)pine(l,w*(.03+i*.06),A(w*(.03+i*.06))+u*2,u*6,i%2?1:-1);groundLines(l,w,h,gy)},
+volcano:function(l,w,h){var hz=h*.64,u=h/100;volcano(l,w*.62,hz,h*.55,true);hill(l,w*.05,w*.35,hz,h*.08,4,.45);church(l,w*.24,hz-u*1,h*.12);
+  l.globalAlpha=.55;for(var i=0;i<9;i++)l.fillRect(w*(.08+i*.03),hz-u*(2+i%3*1.5),w*.022,u*(2+i%3*1.5));l.globalAlpha=1;
+  seaLines(l,w,h,hz,1.2);ship(l,w*.15,hz+u*4,w*.12,1);for(i=0;i<5;i++)plane(l,w*(.2+i*.06),h*(.22+i%2*.04),u*5)},
+dc:function(l,w,h){var gy=h*.68,u=h/100;puffs(l,w*.55,h*.08,w*.5,h*.12,60,9,.24);bolt(l,w*.25,h*.12,h*.36,2);bolt(l,w*.7,h*.16,h*.3,5);obelisk(l,w*.7,gy,w*.04,h*.52);capitol(l,w*.3,gy,w*.22);
+  skyline(l,w,gy,51,0,h*.03,h*.07,.45,[w*.08,w*.52]);l.globalAlpha=.5;l.fillRect(w*.55,gy+u*3,w*.3,u*1.5);l.globalAlpha=1;groundLines(l,w,h,gy+u);rain(l,w,h,gy,80,.3);for(var i=0;i<3;i++)heli(l,w*(.45+i*.12),h*(.32+i%2*.05),u*3.5)},
+mine:function(l,w,h){var gy=h*.58,u=h/100;hill(l,-w*.05,w*1.05,gy,h*.16,4,.4,.8);puffs(l,w*.5,gy-u*2,w*.6,u*5,70,3,.5);quarry(l,w,gy+u*3,h);crane(l,w*.18,gy+u*4,h*.24);crane(l,w*.76,gy+u*3,h*.2);
+  l.globalAlpha=.8;l.beginPath();l.ellipse(w*.5,gy+h*.22,w*.2,h*.05,0,0,7);l.fill();cut(l,function(){l.beginPath();l.ellipse(w*.5,gy+h*.22,w*.16,h*.035,0,0,7);l.fill()});l.globalAlpha=1;
+  l.lineWidth=2;l.globalAlpha=.6;for(var i=0;i<9;i++){l.beginPath();l.moveTo(w*(.4+i*.025),gy+h*.21);l.quadraticCurveTo(w*(.38+i*.03),gy+h*.08,w*(.36+i*.035),gy+h*.02);l.stroke()}l.globalAlpha=1;for(i=0;i<6;i++)palm(l,w*(.03+i*.19),gy+u*4,u*7,i%2?.3:-.3)},
+nuclear:function(l,w,h){var gy=h*.68,u=h/100;hill(l,w*.5,w*1.05,gy,h*.22,4,.4);coolingTower(l,w*.62,gy,h*.3);coolingTower(l,w*.78,gy,h*.26);puffs(l,w*.62,gy-h*.34,w*.06,h*.05,14,2,.35);
+  dome(l,w*.45,gy,w*.1,h*.12);l.fillRect(w*.39,gy-h*.08,w*.12,h*.08);l.fillRect(w*.52,gy-h*.22,w*.012,h*.22);skyline(l,w,gy+u*2,61,0,h*.04,h*.13,.5,[w*.36,w*.9]);l.globalAlpha=.4;
+  for(var i=0;i<6;i++){l.fillRect(w*(.05+i*.05),gy-h*(.2+i%2*.05),1,h*(.2+i%2*.05));l.fillRect(w*(.04+i*.05),gy-h*(.2+i%2*.05),w*.02,1.5)}l.globalAlpha=1;groundLines(l,w,h,gy+u*2);seaLines(l,w,h,h*.86,.4)},
+honolulu:function(l,w,h){var hz=h*.62,u=h/100;var D=hill(l,w*.55,w*1.05,hz,h*.2,3,.6,.5);cut(l,function(){l.beginPath();l.ellipse(w*.8,hz-h*.19,w*.08,h*.025,0,0,7);l.fill()});
+  skyline(l,w,hz,71,0,h*.06,h*.2,.6,[w*.62,w*1.1]);seaLines(l,w,h,hz,.5);for(var i=0;i<7;i++)palm(l,w*(.03+i*.14),hz+u*16,u*(8+i%3*2),i%2?.3:-.3);
+  l.globalAlpha=.5;l.lineWidth=2;l.beginPath();l.moveTo(0,hz+u*14);l.quadraticCurveTo(w*.5,hz+u*10,w,hz+u*14);l.stroke();l.globalAlpha=1;ship(l,w*.35,hz,w*.06,1)},
+vegas:function(l,w,h){var gy=h*.68,u=h/100;hill(l,-w*.05,w*.5,gy,h*.18,3,.4,.8);hill(l,w*.45,w*1.05,gy,h*.14,6,.4,.9);stratTower(l,w*.18,gy,h*.5);pyramid(l,w*.7,gy,w*.14,.85);
+  for(var i=0;i<3;i++)beam(l,w*.7,gy-w*.087,-Math.PI/2+(i-1)*.02,h*.8,.008,.4);skyline(l,w,gy,81,0,h*.06,h*.22,.6,[w*.6,w*.8]);groundLines(l,w,h,gy);
+  l.globalAlpha=.4;for(i=0;i<40;i++)l.fillRect(w*(.25+i*.009),gy+u*2,w*.004,u*.6);l.globalAlpha=1},
+sf:function(l,w,h){var hz=h*.64,u=h/100;hill(l,-w*.05,w*.3,hz,h*.14,3,.5);hill(l,w*.75,w*1.05,hz,h*.12,5,.5);puffs(l,w*.5,hz-h*.24,w*.55,h*.05,50,4,.2);
+  l.globalAlpha=.9;suspBridge(l,-w*.02,w*.72,hz-h*.08,h*.28);l.globalAlpha=.65;skyline(l,w,hz,91,0,h*.05,h*.15,.6,[-1,w*.7]);l.globalAlpha=.85;poly(l,[w*.82,hz,w*.845,hz-h*.36,w*.87,hz]);l.globalAlpha=1;seaLines(l,w,h,hz,.8);ship(l,w*.3,hz+u*6,w*.1,1)},
+sedona:function(l,w,h){var gy=h*.7,u=h/100;butte(l,w*.02,gy,w*.3,h*.38,.6);mesa(l,w*.35,gy,w*.32,h*.22,.5);butte(l,w*.65,gy,w*.34,h*.42,.65);hill(l,-w*.05,w*1.05,gy,h*.05,9,.4);
+  l.globalAlpha=.8;dome(l,w*.5,gy+u*3,w*.1,h*.05);l.fillRect(w*.42,gy,w*.16,u*3);l.fillRect(w*.56,gy-h*.08,1.5,h*.08);l.globalAlpha=1;groundLines(l,w,h,gy+u*3);
+  l.globalAlpha=.45;for(var i=0;i<8;i++){var x=w*(.05+i*.12);l.fillRect(x,gy+u*5,u*.6,u*4);l.fillRect(x-u*1.2,gy+u*6,u*1.2,u*.5);l.fillRect(x+u*.6,gy+u*5.5,u*1.2,u*.5)}l.globalAlpha=1},
+rome:function(l,w,h){var gy=h*.7,u=h/100;colosseum(l,w*.3,gy,w*.42,h*.28);dome(l,w*.12,gy-h*.08,w*.12,h*.13);l.fillRect(w*.06,gy-h*.08,w*.12,h*.08);l.fillRect(w*.116,gy-h*.25,w*.008,h*.05);
+  skyline(l,w,gy,13,0,h*.03,h*.08,.45,[w*.04,w*.74]);for(var i=0;i<6;i++){var x=w*(.76+i*.04);l.beginPath();l.ellipse(x,gy-h*.1,w*.008,h*.1,0,0,7);l.fill()}groundLines(l,w,h,gy);puffs(l,w*.55,h*.15,w*.35,h*.06,30,5,.15)},
+city:function(l,w,h){var gy=h*.68;skyline(l,w,gy,99,0,h*.06,h*.3,.65);groundLines(l,w,h,gy)}
+};
+
+function lattice(l,x,y,w,h){poly(l,[x-w/2,y,x-w*.08,y-h,x+w*.08,y-h,x+w/2,y]);cut(l,function(){for(var i=1;i<9;i++){var yy=y-h*i/9,hw=(w/2)*(1-i/9*.84);l.beginPath();l.moveTo(x-hw*.7,yy);l.lineTo(x,yy-h*.05);l.lineTo(x+hw*.7,yy);l.lineTo(x,yy+h*.05);l.closePath();l.fill()}});
+  l.fillRect(x-w*.3,y-h*.38,w*.6,h*.035);l.fillRect(x-w*.2,y-h*.68,w*.4,h*.03);l.fillRect(x-1,y-h*1.15,2,h*.15)}
+function onion(l,x,y,w,h){l.fillRect(x-w/2,y-h*.75,w,h*.75);l.beginPath();l.ellipse(x,y-h*.82,w*.6,h*.12,0,0,7);l.fill();poly(l,[x-w*.25,y-h*.9,x,y-h*1.05,x+w*.25,y-h*.9]);l.fillRect(x-1,y-h*1.12,2,h*.08)}
+function stepTemple(l,x,y,s){for(var i=0;i<5;i++){var ww=s*(1-i*.17);l.fillRect(x-ww/2,y-s*.12*(i+1),ww,s*.12)}poly(l,[x-s*.12,y-s*.6,x,y-s*1.05,x+s*.12,y-s*.6])}
+SCN.tokyo=function(l,w,h){var gy=h*.68,u=h/100;hill(l,w*.55,w*1.05,gy,h*.12,4,.3);skyline(l,w,gy,111,0,h*.06,h*.24,.6,[w*.3,w*.46]);l.globalAlpha=.9;lattice(l,w*.38,gy,w*.1,h*.48);l.globalAlpha=1;
+  for(var i=0;i<3;i++)beam(l,w*(.1+i*.35),gy,-1.3-i*.25,h*.8,.025,.15);puffs(l,w*.7,h*.3,w*.08,h*.18,24,4,.25);groundLines(l,w,h,gy);for(i=0;i<4;i++)heli(l,w*(.55+i*.1),h*(.22+i%2*.04),u*3.5)};
+SCN.nyc=function(l,w,h){var gy=h*.66,u=h/100;skyline(l,w,gy,121,0,h*.08,h*.26,.6,[w*.26,w*.62]);l.globalAlpha=.9;tower(l,w*.28,gy,w*.05,h*.42,rng(2),1);poly(l,[w*.28,gy-h*.42,w*.305,gy-h*.5,w*.33,gy-h*.42]);
+  block(l,w*.5,gy,w*.045,h*.36,rng(5),true);poly(l,[w*.5,gy-h*.36,w*.5225,gy-h*.48,w*.545,gy-h*.36]);l.globalAlpha=.8;poly(l,[w*.4,gy,w*.4,gy-h*.18,w*.46,gy-h*.18,w*.43,gy]);l.globalAlpha=1;
+  seaLines(l,w,h,gy,.6);l.globalAlpha=.85;suspBridge(l,w*.62,w*1.05,gy+u*4,h*.14);l.globalAlpha=1;rain(l,w,h,gy,100,.35);for(var i=0;i<3;i++)heli(l,w*(.15+i*.12),h*(.2+i%2*.05),u*3.5)};
+SCN.fuji=function(l,w,h){var gy=h*.68,u=h/100;poly(l,[w*.05,gy,w*.42,gy-h*.42,w*.58,gy-h*.42,w*.95,gy],.6);cut(l,function(){for(var i=0;i<7;i++){l.beginPath();l.moveTo(w*(.44+i*.018),gy-h*.41);l.lineTo(w*(.42+i*.025),gy-h*(.3+.05*(i%2)));l.lineTo(w*(.45+i*.02),gy-h*.36);l.fill()}});
+  pagoda(l,w*.15,gy,h*.18);torii(l,w*.8,gy,h*.14);for(var i=0;i<5;i++)pine(l,w*(.25+i*.1),gy+u*2,u*(5+i%2*2),i%2?1:-1);groundLines(l,w,h,gy+u)};
+SCN.lochness=function(l,w,h){var hz=h*.62,u=h/100;hill(l,-w*.05,w*.6,hz,h*.24,3,.55,.6);hill(l,w*.4,w*1.05,hz,h*.2,7,.45,.6);l.globalAlpha=.85;l.fillRect(w*.7,hz-h*.2,w*.05,h*.2);
+  for(var i=0;i<5;i++)l.fillRect(w*(.7+i*.012),hz-h*.22,w*.007,h*.02);l.fillRect(w*.62,hz-h*.08,w*.18,h*.08);cut(l,function(){l.fillRect(w*.71,hz-h*.15,w*.01,h*.03);l.fillRect(w*.64,hz-h*.06,w*.02,h*.06)});l.globalAlpha=1;
+  puffs(l,w*.5,hz-u*3,w*.6,u*4,70,9,.3);seaLines(l,w,h,hz,.3);l.globalAlpha=.6;l.beginPath();l.moveTo(w*.3,hz+u*8);l.quadraticCurveTo(w*.33,hz-u*2,w*.36,hz+u*7);l.quadraticCurveTo(w*.39,hz+u*3,w*.42,hz+u*8);l.fill();l.globalAlpha=1};
+SCN.munich=function(l,w,h){var gy=h*.7,u=h/100;hill(l,-w*.05,w*1.05,gy-u*4,h*.3,5,.3,1.6);skyline(l,w,gy,131,0,h*.05,h*.12,.5,[w*.36,w*.62]);l.globalAlpha=.9;onion(l,w*.42,gy,w*.06,h*.42);onion(l,w*.53,gy,w*.06,h*.42);l.fillRect(w*.42,gy-h*.2,w*.11,h*.2);l.globalAlpha=1;groundLines(l,w,h,gy)};
+SCN.pensacola=function(l,w,h){var hz=h*.64,u=h/100;l.globalAlpha=.8;for(var i=0;i<5;i++)block(l,w*(.05+i*.09),hz,w*.07,h*(.08+i%3*.04),rng(i+3),false);for(i=0;i<4;i++)l.fillRect(w*(.08+i*.1),hz-h*.3,w*.012,h*.3);
+  tower(l,w*.62,hz,w*.08,h*.4,rng(9),3);l.globalAlpha=1;puffs(l,w*.12,hz-h*.36,w*.04,h*.1,14,3,.3);seaLines(l,w,h,hz,.5);for(i=0;i<6;i++)palm(l,w*(.72+i*.05),hz+u*10,u*7,i%2?.3:-.3)};
+SCN.angkor=function(l,w,h){var gy=h*.7,u=h/100;l.globalAlpha=.85;stepTemple(l,w*.5,gy,h*.42);stepTemple(l,w*.32,gy,h*.3);stepTemple(l,w*.68,gy,h*.3);stepTemple(l,w*.2,gy,h*.22);stepTemple(l,w*.8,gy,h*.22);l.fillRect(w*.1,gy-h*.05,w*.8,h*.05);l.globalAlpha=1;
+  puffs(l,w*.5,gy+u*2,w*.6,u*4,50,3,.4);seaLines(l,w,h,gy+u*5,.2);for(var i=0;i<4;i++)palm(l,w*(.04+i*.3),gy+u*6,u*8,i%2?.3:-.3)};
+SCN.andes=function(l,w,h){var gy=h*.72,u=h/100;hill(l,-w*.05,w*.45,gy,h*.42,3,.5,.7);var P=hill(l,w*.45,w*.8,gy,h*.52,6,.65,.5);hill(l,w*.75,w*1.05,gy,h*.36,8,.45,.6);
+  l.globalAlpha=.85;for(var i=0;i<6;i++)l.fillRect(w*(.12+i*.02),gy-h*(.08+i*.035),w*(.26-i*.03),u*1.2);for(i=0;i<5;i++)l.fillRect(w*(.16+i*.04),gy-h*.3,w*.02,u*2.5);l.globalAlpha=1;puffs(l,w*.6,gy-h*.42,w*.3,h*.05,40,4,.3);groundLines(l,w,h,gy)};
+SCN.pillars=function(l,w,h){var gy=h*.72,u=h/100;hill(l,-w*.05,w*1.05,gy,h*.08,4,.4);var r=rng(17);for(var i=0;i<7;i++){var x=w*(.1+i*.12),hh=h*(.22+r()*.2),ww=w*(.04+r()*.03);l.globalAlpha=.8;poly(l,[x-ww,gy,x-ww*.8,gy-hh*.9,x-ww*.3,gy-hh,x+ww*.5,gy-hh*.85,x+ww,gy])}
+  l.globalAlpha=1;puffs(l,w*.5,h*.15,w*.5,h*.08,50,8,.2);rain(l,w,h,gy,80,.3);groundLines(l,w,h,gy)};
+SCN.ruins=function(l,w,h){var gy=h*.72,u=h/100;hill(l,-w*.05,w*1.05,gy,h*.12,6,.35);l.globalAlpha=.9;for(var i=0;i<8;i++){var x=w*(.15+i*.06),hh=h*(.24-(i%3)*.04);l.fillRect(x,gy-hh,w*.025,hh);l.fillRect(x-w*.006,gy-hh-u,w*.037,u)}
+  l.fillRect(w*.15,gy-h*.26,w*.27,u*1.5);l.fillRect(w*.65,gy-h*.18,w*.12,h*.18);l.beginPath();l.arc(w*.71,gy-h*.18,w*.06,Math.PI,0);l.fill();cut(l,function(){l.beginPath();l.arc(w*.71,gy-h*.06,w*.035,Math.PI,0);l.fill();l.fillRect(w*.675,gy-h*.06,w*.07,h*.06)});l.globalAlpha=1;groundLines(l,w,h,gy)};
+SCN.uluru=function(l,w,h){var gy=h*.7,u=h/100;l.globalAlpha=.75;l.beginPath();l.moveTo(w*.12,gy);l.bezierCurveTo(w*.14,gy-h*.26,w*.82,gy-h*.28,w*.88,gy);l.closePath();l.fill();cut(l,function(){for(var i=0;i<9;i++)l.fillRect(w*(.2+i*.07),gy-h*(.2-(i%3)*.03),1.5,h*.18)});l.globalAlpha=1;
+  l.beginPath();l.arc(w*.8,h*.2,u*6,0,7);l.globalAlpha=.4;l.fill();l.globalAlpha=1;groundLines(l,w,h,gy);for(var i=0;i<8;i++){var x=w*(.05+i*.13);l.fillRect(x,gy+u*3,u*.5,u*3)}};
+SCN.devils=function(l,w,h){var gy=h*.72,u=h/100;hill(l,-w*.05,w*1.05,gy,h*.1,3,.45);l.globalAlpha=.85;poly(l,[w*.38,gy-h*.08,w*.42,gy-h*.48,w*.58,gy-h*.48,w*.62,gy-h*.08]);cut(l,function(){for(var i=0;i<10;i++)l.fillRect(w*(.42+i*.016),gy-h*.46,1.2,h*.36)});l.globalAlpha=1;
+  for(var i=0;i<12;i++)pine(l,w*(.03+i*.085),gy+u*3,u*(5+i%3*1.5),i%2?1:-1);groundLines(l,w,h,gy+u*2);puffs(l,w*.5,h*.12,w*.4,h*.06,40,4,.18)};
+SCN.sea=function(l,w,h){var hz=h*.56,u=h/100;puffs(l,w*.5,h*.14,w*.6,h*.1,60,3,.2);bolt(l,w*.3,h*.16,h*.3,9);seaLines(l,w,h,hz,2);ship(l,w*.15,hz,w*.12,1);ship(l,w*.85,hz+u,w*.09,-1);rain(l,w,h,hz,90,.3);
+  l.globalAlpha=.4;l.lineWidth=2;for(var k=1;k<4;k++){l.beginPath();l.ellipse(w*.5,hz+h*.2,w*.08*k,u*2.4*k,0,0,7);l.stroke()}l.globalAlpha=1};
+SCN.sanctum=function(l,w,h){var gy=h*.7,u=h/100;l.globalAlpha=.55;l.beginPath();l.arc(w*.5,h*.26,u*14,0,7);l.fill();cut(l,function(){l.beginPath();l.arc(w*.56,h*.23,u*12,0,7);l.fill()});l.globalAlpha=1;
+  hill(l,-w*.05,w*.5,gy,h*.42,3,.55,1.4);hill(l,w*.45,w*1.05,gy,h*.38,7,.55,1.3);iceCliffs(l,w,gy+u*2,5,h*.07,.7);for(var i=0;i<6;i++)crystal(l,w*(.3+i*.08),gy+u*3,h*(.06+.03*(i%2)),(i-2.5)*.15);groundLines(l,w,h,gy+u*3)};
+SCN.nubia=function(l,w,h){var gy=h*.7,u=h/100;l.globalAlpha=.6;l.beginPath();l.moveTo(w*.55,gy);l.lineTo(w*.6,gy-h*.22);l.lineTo(w*.9,gy-h*.24);l.lineTo(w*.95,gy);l.fill();l.globalAlpha=1;
+  for(var i=0;i<6;i++)poly(l,[w*(.08+i*.07),gy,w*(.11+i*.07),gy-h*(.16+i%2*.05),w*(.14+i*.07),gy],.8);seaLines(l,w,h,gy+u*6,.3);for(i=0;i<5;i++)palm(l,w*(.5+i*.1),gy+u*5,u*7,i%2?.3:-.3)};
+
+function sceneKey(name){var n=name||"";
+  var M=[[/Sanctum|圣所/,"sanctum"],[/Odo|大户/,"odo"],[/Bikini|比基尼/,"bikini"],[/Ginza|银座/,"ginza"],[/Sagami|相模/,"sagami"],[/Hollow|地心/,"hollow"],[/Skull|骷髅岛/,"jungle"],[/南极|Antarctic|Outpost 32/,"ice"],[/Hong Kong|香港/,"hk"],[/Giza|吉萨|开罗/,"giza"],
+   [/Rio|里约/,"rio"],[/云南|Temple/,"temple"],[/Boston|波士顿/,"boston"],[/Mara/,"volcano"],[/Washington|华盛顿/,"dc"],[/矿坑|Philippines/,"mine"],[/Janjira|雀路罗/,"nuclear"],[/Honolulu|檀香山/,"honolulu"],
+   [/Vegas|Yucca|内华达/,"vegas"],[/San Francisco|旧金山/,"sf"],[/Sedona/,"sedona"],[/Rome|罗马/,"rome"],[/Fuji|富士/,"fuji"],[/Mihara|三原山/,"volcano"],[/Tokai|东海村/,"nuclear"],[/Tokyo|东京|Shinjuku|新宿|Kamata|蒲田|Shinagawa|品川|Haneda|Osaka|大阪|Nagoya|名古屋|Fukuoka|福冈|Yokohama|横滨|Kamakura|镰仓|Tama|多摩川|Aqua-Line/,"tokyo"],
+   [/New York|纽约|Manhattan|Madison|Brooklyn/,"nyc"],[/Loch Ness|尼斯湖/,"lochness"],[/Munich|慕尼黑/,"munich"],[/Pensacola|彭萨科拉/,"pensacola"],[/Angkor|吴哥/,"angkor"],[/Machu|马丘/,"andes"],[/Manpupuner|曼普普纳/,"pillars"],
+   [/Volubilis|瓦卢比利斯/,"ruins"],[/Uluru|乌鲁鲁|Stone Mountain/,"uluru"],[/Devils Tower|魔鬼塔/,"devils"],[/Jebel|博尔戈尔/,"nubia"],[/Sanctum|圣所/,"sanctum"],[/北极|Alaska|阿拉斯加|Nemuro|根室/,"ice"],[/丛林/,"jungle"],
+   [/Ocean|印度洋|Open Sea|海域|Bermuda|百慕大|Moruroa|穆鲁罗瓦|Panama|巴拿马|Jamaica|牙买加|Okinawa|冲绳|Tateyama|馆山|Atoll/,"sea"]];
+  for(var i=0;i<M.length;i++)if(M[i][0].test(n))return M[i][1];return"city"}
+function sceneTag(name,key){var Y={};var en=(name||"").replace(/（.*?）/g,"").match(/[A-Za-z][A-Za-z0-9 .'\-·\/]*[A-Za-z0-9]/g);return((en?en.join(" "):key)+(Y[key]||"")).toUpperCase()}
+
+/* ================= 3D view: models ================= */
+var MODELS={
+  "godzilla":{kind:"gltf",acts:[["breath","原子吐息"]],breath:[0xeefcff,0x3f9cff],fit:"stand",yaw:0,variants:[{label:"2021 · GvK",f:"m/g_mv2021.wasm"},{label:"2014",f:"m/g_mv2014.wasm",h:108.2}]},
+  "godzilla-showa":{f:"m/g_showa.wasm",kind:"gltf",acts:[["breath","放射热线"]],breath:[0xffffff,0x9fd8ff],fit:"stand",yaw:0},
+  "zilla-1998":{f:"m/g_zilla.wasm",kind:"gltf",fit:"stand",yaw:0},
+  "shin-godzilla":{f:"m/g_shin.wasm",kind:"gltf",acts:[["breath","放射线流"]],breath:[0xf7e8ff,0x9a4dff],fit:"stand",yaw:0},
+  "godzilla-earth":{f:"m/g_earth.wasm",kind:"gltf",acts:[["breath","高频热线"]],breath:[0xfff1e0,0xff8a2a],fit:"stand",yaw:0},
+  "godzilla-ultima":{f:"m/g_ultima.wasm",kind:"gltf",acts:[["breath","热线"]],breath:[0xffe6f0,0xff3a7a],fit:"stand",yaw:0},
+  "godzilla-minus-one":{f:"m/goji.wasm",fbx:true,kind:"goji",acts:[["heat","释放热线"]],fit:"stand",yaw:0},
+  "kong":{f:"m/kong.wasm",kind:"kong",fit:"stand",yaw:0},
+  "king-ghidorah":{f:"m/ghidorah.wasm",kind:"ghidorah",acts:[["storm","召唤雷暴"],["gravity","引力光线"]],fit:"stand",yaw:0,start:/Mara/},
+  "rodan":{f:"m/rodan.wasm",fbx:true,kind:"rodan",acts:[["lava","熔岩烈焰"]],fit:"fly",yaw:0},
+  "mothra":{f:"m/mothra.wasm",fbx:true,kind:"mothra",acts:[["glow","鳞粉之光"]],fit:"fly",yaw:0},
+  "muto":{kind:"muto",acts:[["emp","电磁脉冲"]],fit:"stand",yaw:0,variants:[{label:"雌性 · 2014",f:"m/muto_female.wasm",h:91},{label:"雄性 · 有翼",f:"m/muto_male.wasm",h:61},{label:"另一造型",f:"m/muto.wasm",h:91}]},
+  "scylla":{f:"m/scylla.wasm",kind:"gltf",fit:"stand",yaw:0,cam:{d:.32,e:.03,t:.72,fov:68}},
+  "skar-king":{f:"m/skar.wasm",kind:"gltf",fit:"stand",yaw:0},
+  "shimo":{f:"m/shimo.wasm",fbx:true,kind:"shimo",acts:[["frost","冰霜吐息"]],fit:"stand",yaw:0},
+  "methuselah":{f:"m/methuselah.wasm",kind:"gltf",fit:"stand",yaw:0,cam:{d:.55,e:.03,t:.7,fov:64}},
+  "mechagodzilla":{f:"m/mechagodzilla.wasm",kind:"mecha",acts:[["proton","质子咆哮"]],fit:"stand",yaw:0},
+  "skullcrawler":{f:"m/skullcrawler.wasm",fbx:true,kind:"skull",fit:"stand",yaw:0},
+  "behemoth":{f:"m/behemoth.wasm",kind:"gltf",fit:"stand",yaw:0},
+  "tiamat":{f:"m/tiamat.wasm",kind:"gltf",fit:"stand",yaw:0},
+  "warbat":{f:"m/warbat.wasm",fbx:true,kind:"wb",fit:"fly",yaw:0},
+  "mother-longlegs":{f:"m/longlegs.wasm",fbx:true,kind:"ml",fit:"stand",yaw:0,cam:{d:.35,e:.03,t:.75,fov:68}}
+};
+function startLoc(id){var m=MODELS[id],L=(byId[id]||{}).locations||[];if(m&&m.start){for(var i=0;i<L.length;i++)if(m.start.test(L[i].name))return i}return 0}
+function hasModel(id){return!!MODELS[id]}
+var G3={variant:0,vs:null,id:null,k:0,t:0,open:false,loc:0,cur:null,prev:null,curTag:"",prevTag:"",fadeT0:0,pinned:false,lastCycle:0,ready:false,loading:false,api:null};
+var stageEl=$("stage"),GHc=$("ghost"),GHx=GHc.getContext("2d"),GW=0,GHh=0,GCACHE={},GBASE=null,GVIG=null;
+function curLocs(){return(byId[G3.id]||{}).locations||[]}
+function buildScene(key,tag,tc,w,h){var L=mkc(w,h),l=L.getContext("2d");l.fillStyle=l.strokeStyle="#fff";(SCN[key]||SCN.city)(l,w,h);
+  var T=mkc(w,h),t=T.getContext("2d");t.drawImage(L,0,0);t.globalCompositeOperation="source-in";var g=t.createLinearGradient(0,h*.05,0,h);
+  g.addColorStop(0,"rgba(99,210,228,.10)");g.addColorStop(.5,"rgba(128,222,238,.42)");g.addColorStop(1,"rgba(99,210,228,.55)");t.fillStyle=g;t.fillRect(0,0,w,h);
+  var Rr=mkc(w,h),r=Rr.getContext("2d");r.drawImage(L,0,0);r.globalCompositeOperation="source-in";r.globalAlpha=.22;r.fillStyle=tc;r.fillRect(0,0,w,h);
+  var O=mkc(w,h),o=O.getContext("2d");o.drawImage(Rr,Math.max(2,w*.004),0);o.save();o.shadowColor="rgba(99,210,228,.65)";o.shadowBlur=Math.max(8,h*.02);o.drawImage(T,0,0);o.restore();
+  o.globalCompositeOperation="destination-out";o.fillStyle="rgba(0,0,0,.4)";for(var y=0;y<h;y+=3)o.fillRect(0,y,w,1);
+  o.globalCompositeOperation="source-over";o.font="600 "+Math.round(h*.034)+"px 'Chakra Petch',sans-serif";o.textAlign="right";o.fillStyle="rgba(99,210,228,.24)";
+  if(o.letterSpacing!==undefined)o.letterSpacing=Math.round(h*.008)+"px";o.fillText(tag,w*.97,h*.16);return O}
+function sceneCv(key,tag,tc,w,h){tc=tc||(byId[G3.id]||{}).color||"#e8553d";w=w||GW;h=h||GHh;var k=key+"|"+tag+"|"+tc+"|"+w+"x"+h;return GCACHE[k]||(GCACHE[k]=buildScene(key,tag,tc,w,h))}
+function ghostSize(){var r=stageEl.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,1.5),w=Math.max(2,Math.round(r.width*d)),h=Math.max(2,Math.round(r.height*d));
+  if(w===GW&&h===GHh)return false;GW=GHc.width=w;GHh=GHc.height=h;GCACHE={};
+  GBASE=mkc(w,h);var b=GBASE.getContext("2d"),g=b.createRadialGradient(w/2,h*.55,0,w/2,h*.55,Math.max(w,h)*.75);g.addColorStop(0,"#0d2a35");g.addColorStop(1,"#040d12");b.fillStyle=g;b.fillRect(0,0,w,h);
+  b.strokeStyle="rgba(99,210,228,.05)";b.lineWidth=1;for(var x=0;x<w;x+=Math.round(h/14)){b.beginPath();b.moveTo(x,0);b.lineTo(x,h);b.stroke()}for(var y=0;y<h;y+=Math.round(h/14)){b.beginPath();b.moveTo(0,y);b.lineTo(w,y);b.stroke()}
+  GVIG=mkc(w,h);var v=GVIG.getContext("2d"),vg=v.createRadialGradient(w/2,h/2,Math.min(w,h)*.35,w/2,h/2,Math.max(w,h)*.72);vg.addColorStop(0,"rgba(4,13,18,0)");vg.addColorStop(1,"rgba(4,13,18,.85)");v.fillStyle=vg;v.fillRect(0,0,w,h);return true}
+var GFX={flick:0,flash:0};
+function ghostFrame(ts){var c=GHx,w=GW,h=GHh;if(!w||!G3.cur)return;c.globalAlpha=1;c.drawImage(GBASE,0,0);
+  var f=reduce?1:Math.min(1,(ts-G3.fadeT0)/1500),fe=f*f*(3-2*f),dr=reduce?0:Math.sin(ts/9000)*w*.012,fl=reduce?1:.93+.07*Math.sin(ts/97)*Math.sin(ts/531);
+  if(GFX.flick>0)fl*=.4+.6*Math.random();
+  if(G3.prev&&f<1){c.globalAlpha=(1-fe)*fl;c.drawImage(sceneCv(G3.prev,G3.prevTag),dr-w*.04*fe,0)}
+  c.globalAlpha=fe*fl;c.drawImage(sceneCv(G3.cur,G3.curTag),dr+w*.04*(1-fe),0);c.globalAlpha=1;
+  if(!reduce){var y=((ts/7000)%1)*h*1.3-h*.15,g=c.createLinearGradient(0,y-h*.08,0,y+h*.08);g.addColorStop(0,"rgba(99,210,228,0)");g.addColorStop(.5,"rgba(99,210,228,.07)");g.addColorStop(1,"rgba(99,210,228,0)");c.fillStyle=g;c.fillRect(0,y-h*.08,w,h*.16)}
+  if(GFX.flash>0){c.globalAlpha=Math.min(1,GFX.flash)*.3;c.fillStyle="#ffb46a";c.fillRect(0,0,w,h);c.globalAlpha=1}
+  c.drawImage(GVIG,0,0)}
+/* --- UI --- */
+function setLoad(msg,p){if($("vs").classList.contains("on"))$("vsLoad").textContent=p===null?"":msg;var el=$("g3load");if(p===null){el.style.display="none";return}el.style.display="block";el.querySelector("b").textContent=msg;el.querySelector("i").style.width=(p<0?100:p*100)+"%";el.classList.toggle("err",p<0)}
+function setLoc(i,fly){var L=curLocs(),l=L[i];if(!l)return;G3.loc=i;var key=sceneKey(l.name),tag=sceneTag(l.name,key);
+  if(key!==G3.cur||tag!==G3.curTag){G3.prev=G3.cur;G3.prevTag=G3.curTag;G3.cur=key;G3.curTag=tag;G3.fadeT0=performance.now()}
+  if(fly!==false){if(l.layer==="hollow"&&!S.hollow)setHollow(true);if(l.layer!=="hollow"&&S.hollow)setHollow(false);flyTo(l.lat,l.lon)}var t=byId[G3.id];
+  $("g3card").style.setProperty("--c",t.color);$("g3eb").textContent=t.name_cn.replace(/（.*?）/g,"")+" · 出没地 "+(i+1)+" / "+L.length;$("g3name").textContent=l.name.replace(/（.*?）/g,"");$("g3note").textContent=l.note;
+  $("g3locs").innerHTML=L.map(function(x,k){return"<button data-i='"+k+"' aria-pressed='"+(k===i)+"'>"+esc(x.name.replace(/Hollow Earth · /,"地心·").split(/\s|（/)[0])+"</button>"}).join("")+(L.length>1?"<button data-a='cy' aria-pressed='"+(!G3.pinned)+"' title='每 8 秒切换一处'>轮播</button>":"")}
+$("g3locs").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;if(b.dataset.a==="cy"){G3.pinned=!G3.pinned;G3.lastCycle=performance.now();setLoc(G3.loc,false);return}G3.pinned=true;setLoc(+b.dataset.i)});
+function open3D(id,i){var m=MODELS[id];if(!m)return;endStory();if(S.sel!==id)select(id);var switching=G3.id!==id;G3.id=id;G3.open=true;G3.t=1;S.auto=false;stageEl.classList.add("m3");$("g3ui").setAttribute("aria-hidden","false");loreLayout();
+  $("tip").style.display="none";$("pick").style.display="none";ghostSize();G3.lastCycle=performance.now();if(switching){G3.cur=null;G3.prev=null}setLoc(i==null?(switching?startLoc(id):G3.loc):i);if(!G3.prev)G3.fadeT0=performance.now()-400;
+  if(switching)G3.variant=0;actsUI(m);
+  if(G3.ready)G3.api.show(id);else init3D()}
+function actsUI(m){$("g3acts").innerHTML=(m.variants?"<span class='g3var'>"+m.variants.map(function(v,i){return"<button data-v='"+i+"' aria-pressed='"+(i===G3.variant)+"'>"+esc(v.label)+"</button>"}).join("")+"</span>":"")+
+  (m.acts||[]).map(function(a){return"<button class='fire' data-act='"+a[0]+"'>"+esc(a[1])+"</button>"}).join("")}
+$("g3acts").addEventListener("click",function(e){var b=e.target.closest("button");if(!b||!G3.api)return;if(b.dataset.v!=null){G3.variant=+b.dataset.v;actsUI(MODELS[G3.id]);G3.api.show(G3.id,true)}else if(b.dataset.act)G3.api.fire(b.dataset.act)});
+$("g3zin").onclick=function(){if(G3.api)G3.api.zoom(1/1.25)};$("g3zout").onclick=function(){if(G3.api)G3.api.zoom(1.25)};
+function close3D(){if(!G3.open)return;G3.open=false;G3.t=0;stageEl.classList.remove("m3");$("g3ui").setAttribute("aria-hidden","true");loreLayout();
+  setTimeout(function(){if(!G3.open&&G3.api)G3.api.stop()},800)}
+$("g3close").onclick=close3D;$("miniBack").onclick=close3D;
+$("g3rot").onclick=function(){var on=this.getAttribute("aria-pressed")!=="true";this.setAttribute("aria-pressed",on);if(G3.api)G3.api.rotate(on)};
+addEventListener("resize",function(){if(G3.open&&ghostSize()&&G3.api)G3.api.resize()});
+function tick3(ts){var tg=G3.t;G3.k+=reduce?(tg-G3.k):(tg-G3.k)*.075;if(Math.abs(tg-G3.k)<.002)G3.k=tg;
+  if(G3.k>.01){ghostFrame(ts);if(G3.open&&!G3.pinned&&curLocs().length>1&&ts-G3.lastCycle>8000){G3.lastCycle=ts;setLoc((G3.loc+1)%curLocs().length)}}}
+function miniLayout(){var Rm=Math.max(46,Math.min(92,Math.min(Wd,Ht)*.14)),mb=$("miniBack");mb.style.width=mb.style.height=Rm*2+"px";return Rm}
+
+async function init3D(){if(G3.loading)return;G3.loading=true;setLoad("载入 three.js …",.04);
+ var THREE,mods;
+ try{THREE=await import("three");mods=await Promise.all([import("three/addons/loaders/FBXLoader.js"),import("three/addons/loaders/GLTFLoader.js"),import("three/addons/controls/OrbitControls.js"),import("three/addons/postprocessing/EffectComposer.js"),
+   import("three/addons/postprocessing/RenderPass.js"),import("three/addons/postprocessing/UnrealBloomPass.js"),import("three/addons/postprocessing/OutputPass.js"),import("three/addons/environments/RoomEnvironment.js")])}
+ catch(err){G3.loading=false;setLoad("three.js 载入失败，请检查网络后重试（"+(err&&err.message||err)+"）",-1);return}
+ var V3=THREE.Vector3,Q=THREE.Quaternion,cv3=$("g3"),renderer;
+ try{renderer=new THREE.WebGLRenderer({canvas:cv3,antialias:true,powerPreference:"high-performance"})}catch(err){G3.loading=false;setLoad("当前浏览器无法启用 WebGL，3D 模型无法显示",-1);return}
+ renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.75));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;
+ renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+ var scene=new THREE.Scene(),bgTex=null;function mkBg(src){if(bgTex)bgTex.dispose();bgTex=new THREE.CanvasTexture(src||GHc);bgTex.colorSpace=THREE.SRGBColorSpace;scene.background=bgTex}mkBg();
+ var pm=new THREE.PMREMGenerator(renderer);scene.environment=pm.fromScene(new mods[7].RoomEnvironment(),.04).texture;
+ scene.fog=new THREE.Fog(0x061219,11,26);
+ var camera=new THREE.PerspectiveCamera(32,1,.05,200),controls=new mods[2].OrbitControls(camera,cv3);
+ controls.enableDamping=true;controls.enablePan=false;controls.enableZoom=false;controls.minDistance=.3;controls.maxDistance=30;controls.maxPolarAngle=Math.PI*.82;controls.minPolarAngle=.05;controls.autoRotate=false;controls.autoRotateSpeed=.6;controls.rotateSpeed=.8;
+ 
+ var composer=new mods[3].EffectComposer(renderer);composer.addPass(new mods[4].RenderPass(scene,camera));var bloom=new mods[5].UnrealBloomPass(new THREE.Vector2(256,256),.45,.5,.82);composer.addPass(bloom);composer.addPass(new mods[6].OutputPass());
+ var hemi=new THREE.HemisphereLight(0xa8e2ff,0x0a1418,.9);scene.add(hemi);
+ var key=new THREE.DirectionalLight(0xffe4c8,2.4);key.position.set(4,8,5);key.castShadow=true;key.shadow.mapSize.set(2048,2048);var sc=key.shadow.camera;sc.left=sc.bottom=-5;sc.right=sc.top=5;sc.near=.5;sc.far=30;key.shadow.bias=-.0004;key.shadow.normalBias=.03;scene.add(key);
+ var rim=new THREE.DirectionalLight(0x63d2e4,3);rim.position.set(-5,3.5,-6);scene.add(rim);
+ var warm=new THREE.DirectionalLight(0xe8553d,.7);warm.position.set(6,1.2,-2);scene.add(warm);
+ var fxLight=new THREE.PointLight(0x7fe6ff,0,8,1.6);scene.add(fxLight);
+ var ground=new THREE.Mesh(new THREE.CircleGeometry(16,72),new THREE.ShadowMaterial({opacity:.6}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+ var gc=mkc(512,512),gx=gc.getContext("2d");gx.strokeStyle="rgba(99,210,228,1)";for(var rr=30;rr<=250;rr+=28){gx.globalAlpha=.6*(1-rr/260);gx.lineWidth=rr%56===2?2:1;gx.beginPath();gx.arc(256,256,rr,0,7);gx.stroke()}
+ for(var a=0;a<12;a++){gx.globalAlpha=.18;gx.beginPath();gx.moveTo(256,256);gx.lineTo(256+Math.cos(a*Math.PI/6)*250,256+Math.sin(a*Math.PI/6)*250);gx.stroke()}
+ var gt=new THREE.CanvasTexture(gc);gt.colorSpace=THREE.SRGBColorSpace;
+ var grid=new THREE.Mesh(new THREE.PlaneGeometry(13,13),new THREE.MeshBasicMaterial({map:gt,transparent:true,opacity:.55,depthWrite:false,blending:THREE.AdditiveBlending,fog:false}));grid.rotation.x=-Math.PI/2;grid.position.y=.004;scene.add(grid);
+ var pulse=new THREE.Mesh(new THREE.RingGeometry(.97,1,128),new THREE.MeshBasicMaterial({color:0x63d2e4,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,fog:false}));pulse.rotation.x=-Math.PI/2;pulse.position.y=.008;scene.add(pulse);
+ var wave=new THREE.Mesh(new THREE.RingGeometry(.9,1,128),new THREE.MeshBasicMaterial({color:0xff7a3a,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide,fog:false}));wave.rotation.x=-Math.PI/2;wave.position.y=.02;scene.add(wave);
+ /* beams (Godzilla x1, Ghidorah x3) */
+ var bG=new THREE.CylinderGeometry(1,1,1,24,1,true);bG.translate(0,.5,0);
+ function mkBeam(core,glow){var g=new THREE.Group(),c=new THREE.Mesh(bG,new THREE.MeshBasicMaterial({color:core,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,fog:false})),
+   o=new THREE.Mesh(bG,new THREE.MeshBasicMaterial({color:glow,transparent:true,opacity:.4,blending:THREE.AdditiveBlending,depthWrite:false,fog:false,side:THREE.DoubleSide}));g.add(c,o);g.visible=false;g.userData={c:c,o:o};scene.add(g);return g}
+ var beams=[mkBeam(0xeefcff,0x3fc0ff),mkBeam(0xfff3c4,0xffb52e),mkBeam(0xfff3c4,0xffb52e),mkBeam(0xfff3c4,0xffb52e)];
+ function setBeam(b,pos,dir,len,wd,op){b.visible=len>0;if(!b.visible)return;b.position.copy(pos);b.quaternion.setFromUnitVectors(UP,dir);b.userData.c.scale.set(wd,len,wd);b.userData.o.scale.set(wd*3.3,len,wd*3.3);b.userData.o.material.opacity=.4*op}
+ /* Isla de Mara: volcano summit + cross in the foreground */
+ var shrine=new THREE.Group();shrine.visible=false;scene.add(shrine);
+ var lc=mkc(256,256),lx=lc.getContext("2d");lx.fillStyle="#000";lx.fillRect(0,0,256,256);lx.strokeStyle="#ff6a1a";for(var q=0;q<26;q++){lx.globalAlpha=.25+.5*Math.random();lx.lineWidth=1+Math.random()*2;lx.beginPath();var lx0=Math.random()*256,ly0=Math.random()*256;lx.moveTo(lx0,ly0);for(var q2=0;q2<5;q2++){lx0+=(Math.random()-.5)*60;ly0+=Math.random()*40;lx.lineTo(lx0,ly0)}lx.stroke()}
+ var lavaT=new THREE.CanvasTexture(lc);lavaT.colorSpace=THREE.SRGBColorSpace;lavaT.wrapS=lavaT.wrapT=THREE.RepeatWrapping;lavaT.repeat.set(6,2);
+ var peak=new THREE.Mesh(new THREE.CylinderGeometry(1,3.2,1,48,1,true),new THREE.MeshStandardMaterial({color:0x17110d,roughness:1,emissive:0xffffff,emissiveMap:lavaT,emissiveIntensity:.9,side:THREE.DoubleSide}));peak.receiveShadow=true;shrine.add(peak);
+ var crossM=new THREE.MeshStandardMaterial({color:0x050505,roughness:.95,metalness:0}),cross=new THREE.Group();
+ var cv1=new THREE.Mesh(new THREE.BoxGeometry(.11,1,.11),crossM),ch1=new THREE.Mesh(new THREE.BoxGeometry(.56,.1,.1),crossM),cb1=new THREE.Mesh(new THREE.BoxGeometry(.34,.12,.3),crossM);cv1.position.y=.5;ch1.position.y=.74;cb1.position.y=.06;cross.add(cv1,ch1,cb1);shrine.add(cross);
+ function placeShrine(e,fw,side,d){if(e.id!=="king-ghidorah")return;var b=e.box,H=b.max.y-b.min.y,W=Math.max(b.max.x-b.min.x,b.max.z-b.min.z);
+   peak.scale.set(W*.42,H*.5,W*.42);peak.position.set(0,-H*.25,0);var ch=H*.38;cross.scale.setScalar(ch);cross.position.copy(new V3().addScaledVector(fw,d*.55).addScaledVector(side,-d*.3));cross.position.y=-H*.02;cross.rotation.y=Math.atan2(fw.x,fw.z)+.35}
+ /* lightning bolts (Ghidorah) */
+ var BOLTS=[];for(var bi=0;bi<16;bi++){var bm=new THREE.Mesh(new THREE.BufferGeometry(),new THREE.MeshBasicMaterial({color:0xfff2c0,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,fog:false}));bm.visible=false;bm.frustumCulled=false;scene.add(bm);BOLTS.push({m:bm,until:0})}
+ var boltI=0;function spawnBolt(a,c,jag,rad,color,ts,life){var b=BOLTS[boltI++%BOLTS.length],n=12,pts=[];for(var k=0;k<=n;k++){var q=a.clone().lerp(c,k/n);if(k>0&&k<n){var j=jag*Math.sin(Math.PI*k/n);q.x+=(Math.random()-.5)*j;q.y+=(Math.random()-.5)*j;q.z+=(Math.random()-.5)*j}pts.push(q)}
+   var path=new THREE.CurvePath();for(k=0;k<n;k++)path.add(new THREE.LineCurve3(pts[k],pts[k+1]));b.m.geometry.dispose();b.m.geometry=new THREE.TubeGeometry(path,n*2,rad,4,false);b.m.material.color.setHex(color);b.m.visible=true;b.until=ts+life}
+ /* sparkles (Mothra) */
+ var spN=600,spG=new THREE.BufferGeometry(),spP=new Float32Array(spN*3),spV=[];for(var i=0;i<spN;i++){spV.push(new V3((Math.random()-.5)*.02,Math.random()*.02,(Math.random()-.5)*.02))}
+ spG.setAttribute("position",new THREE.BufferAttribute(spP,3));var spM=new THREE.PointsMaterial({color:0x9ff8ff,size:.05,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false,fog:false});var sparks=new THREE.Points(spG,spM);sparks.frustumCulled=false;scene.add(sparks);
+ var root=new THREE.Group();scene.add(root);var UP=new V3(0,1,0);
+ /* --- per-model loading --- */
+ var CACHE={},cur=null,tl=new THREE.TextureLoader();
+ var BLANK="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+ var manager=new THREE.LoadingManager();manager.setURLModifier(function(u){return/\.(png|tga|tif|dds|bmp|jpe?g)$/i.test(u)&&!/^data:|\/m\/|^m\//.test(u)?BLANK:u});
+ function tex(n,srgb){return tl.loadAsync("m/"+n+".jpg").then(function(t){t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());if(srgb)t.colorSpace=THREE.SRGBColorSpace;return t})}
+ function loadFile(m,prog){return new Promise(function(res,rej){var L=m.fbx?new mods[0].FBXLoader(manager):new mods[1].GLTFLoader(manager);
+   L.load(m.f,function(r){res(m.fbx?r:r.scene)},function(e){if(e.total)prog(e.loaded/e.total)},rej)})}
+ async function materialsFor(m,obj){
+  var std=function(o){return new THREE.MeshStandardMaterial(Object.assign({roughness:1,metalness:0,envMapIntensity:.5},o))};
+  if(m.kind==="goji"){var T={},parts=["body","arms","legs"],ch=["diffuse","normal","roughness","emission"],jobs=[];
+    parts.forEach(function(p){ch.forEach(function(c){jobs.push(tex("goji_"+p+"_"+c,c==="diffuse"||c==="emission").then(function(t){T[p+c]=t}))})});await Promise.all(jobs);
+    var M={};parts.forEach(function(p){M[p]=std({map:T[p+"diffuse"],normalMap:T[p+"normal"],roughnessMap:T[p+"roughness"],emissive:0xffffff,emissiveMap:T[p+"emission"],emissiveIntensity:1})});
+    return function(mm){var n=(mm&&mm.name)||"";return M[/arms/i.test(n)?"arms":/legs/i.test(n)?"legs":"body"]}}
+  if(m.kind==="rodan"){var R=await Promise.all(["rodan_body_d","rodan_body_n","rodan_body_r","rodan_wings_d","rodan_wings_n","rodan_wings_r","rodan_wings_e","rodan_eye"].map(function(n){return tex(n,/_d$|_e$|eye/.test(n))}));
+    var body=std({map:R[0],normalMap:R[1],roughnessMap:R[2]}),wings=std({map:R[3],normalMap:R[4],roughnessMap:R[5],emissive:0xffffff,emissiveMap:R[6],emissiveIntensity:.5,side:THREE.DoubleSide}),eye=std({map:R[7],roughness:.3});
+    return function(mm){var n=(mm&&mm.name)||"";return/Wings/i.test(n)?wings:/Eye/i.test(n)?eye:body}}
+  if(m.kind==="mothra"){var W=await Promise.all([tex("mothra_wings_d",true),tex("mothra_wings_e",true),tex("mothra_skin_d",true)]);
+    var wingM=std({map:W[0],emissive:0xffffff,emissiveMap:W[1],emissiveIntensity:.35,side:THREE.DoubleSide,roughness:.8}),skin=std({map:W[2],roughness:.85}),memo={};
+    return function(mm){var n=(mm&&mm.name)||"";if(/001/.test(n))return wingM;if(/004/.test(n))return skin;if(memo[n])return memo[n];
+      var c=mm&&mm.color?mm.color.clone():new THREE.Color(.3,.3,.3);return memo[n]=std({color:c,roughness:.6,side:THREE.DoubleSide,emissive:/002/.test(n)?c:0x000000,emissiveIntensity:/002/.test(n)?.6:0})}}
+  if(m.kind==="shimo"){var Z=await Promise.all(["shimo_body_d","shimo_body_n","shimo_body_r","shimo_limbs_d","shimo_limbs_n","shimo_limbs_r","shimo_crys_d","shimo_crys_e","shimo_eyes_d","shimo_eyes_e"].map(function(n){return tex(n,/_d$|_e$/.test(n))}));
+    var sb=std({map:Z[0],normalMap:Z[1],roughnessMap:Z[2]}),sl=std({map:Z[3],normalMap:Z[4],roughnessMap:Z[5]}),sc2=std({map:Z[6],emissive:0xffffff,emissiveMap:Z[7],emissiveIntensity:.18,roughness:.25,metalness:.1,envMapIntensity:1.2}),se=std({map:Z[8],emissive:0xffffff,emissiveMap:Z[9],emissiveIntensity:.8});
+    return function(mm){var n=(mm&&mm.name)||"";return/Crystal/i.test(n)?sc2:/Limb/i.test(n)?sl:/Eye/i.test(n)?se:sb}}
+  if(m.kind==="ml"){var ML=await Promise.all([tex("ml_d",true),tex("ml_n"),tl.loadAsync("m/ml_leaf.png").then(function(t){t.colorSpace=THREE.SRGBColorSpace;return t}),tex("ml_leaf_n")]);
+    var mlb=std({map:ML[0],normalMap:ML[1],roughness:.7,side:THREE.DoubleSide}),mll=std({map:ML[2],normalMap:ML[3],alphaTest:.4,transparent:false,side:THREE.DoubleSide});return function(mm){return/002/.test((mm&&mm.name)||"")?mll:mlb}}
+  if(m.kind==="wb"){var WB=await Promise.all([tex("wb_d",true),tex("wb_n")]);var wbm=std({map:WB[0],normalMap:WB[1],roughness:.75,side:THREE.DoubleSide});return function(){return wbm}}
+  if(m.kind==="skull"){var K=await Promise.all([tex("skull_d",true),tex("skull_n")]);var sk=std({map:K[0],normalMap:K[1],roughness:.75,side:THREE.DoubleSide});return function(){return sk}}
+  if(m.kind==="lev"){var LM={"0000":3,"0001":4,"0003":2,"0004":1},LT={};await Promise.all([1,2,3,4].map(function(i){return Promise.all([tex("lev_D_"+i,true),tex("lev_N_"+i)]).then(function(r){LT[i]=r})}).concat([Promise.all([tex("lev_eye_D",true),tex("lev_eye_N")]).then(function(r){LT.eye=r}),Promise.all([tex("lev_gore_D",true),tex("lev_gore_N")]).then(function(r){LT.gore=r})]));
+    var lm={};return function(mm){var n=((mm&&mm.name)||"").replace(/\D/g,"").slice(-4),k=LM[n]||(n==="0002"?"eye":n==="0006"?"gore":1);if(!lm[k])lm[k]=std({map:LT[k][0],normalMap:LT[k][1],roughness:.7,side:THREE.DoubleSide});return lm[k]}}
+  if(m.kind==="ghidorah"){var gold=std({color:0x9c7330,metalness:.45,roughness:.62,envMapIntensity:.45,side:THREE.DoubleSide,emissive:0xff8a1a,emissiveIntensity:0});return function(){return gold}}
+  return function(mm){if(mm){mm.envMapIntensity=.6;if(mm.emissiveMap)mm.emissiveIntensity=m.kind==="mecha"?.4:.6;if(m.kind==="mecha"){mm.envMapIntensity=1.1}}return mm}}
+ function boneFind(B,re){for(var k in B)if(re.test(k))return B[k];return null}
+ async function loadModel(id,vi,prog){var m0=MODELS[id],m=m0.variants?Object.assign({},m0,m0.variants[vi||0]):m0;
+  var res=await Promise.all([loadFile(m,prog),materialsFor(m,null)]),obj=res[0],pick=res[1];
+  root.scale.setScalar(1);root.updateMatrixWorld(true);
+  obj.traverse(function(o){if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;o.material=Array.isArray(o.material)?o.material.map(pick):pick(o.material)}});
+  var B={};obj.traverse(function(o){if(o.isBone&&!B[o.name])B[o.name]=o});
+  var holder=new THREE.Group(),grp=new THREE.Group();holder.add(obj);grp.add(holder);root.add(grp);
+  function wp(n){var b=typeof n==="string"?B[n]:n;if(!b)return null;return b.getWorldPosition(new V3())}
+  grp.updateMatrixWorld(true);
+  /* heat-ray progress attribute: 0 at tail tip → 1 at head, measured along the spine chain in rest pose */
+  var U=null;
+  if(m.kind==="goji"){var chainN=["bip_tail_11","bip_tail_10","bip_tail_9","bip_tail_8","bip_tail_7","bip_tail_6","bip_tail_5","bip_tail_4","bip_tail_3","bip_tail_2","bip_tail_1","bip_tail","bip_pelvis","bip_spine_0","bip_spine_1","bip_spine_2","bip_spine_3","bip_neck","bip_neck_1","bip_neck_2","bip_head"].filter(function(n){return B[n]});
+    var CP=chainN.map(function(n){return wp(n)}),cum=[0];for(var i=1;i<CP.length;i++)cum.push(cum[i-1]+CP[i].distanceTo(CP[i-1]));var tot=cum[cum.length-1]||1;
+    var va=new V3(),ab=new V3(),ap=new V3();
+    obj.traverse(function(o){if(!o.isMesh)return;var pos=o.geometry.attributes.position,n=pos.count,arr=new Float32Array(n),mw=o.matrixWorld;
+      for(var v=0;v<n;v++){va.fromBufferAttribute(pos,v).applyMatrix4(mw);var best=1e9,bt=0;
+        for(var s=0;s<CP.length-1;s++){ab.subVectors(CP[s+1],CP[s]);ap.subVectors(va,CP[s]);var L2=ab.lengthSq()||1e-9,f=Math.max(0,Math.min(1,ap.dot(ab)/L2)),dx=ap.x-ab.x*f,dy=ap.y-ab.y*f,dz=ap.z-ab.z*f,d=dx*dx+dy*dy+dz*dz;
+          if(d<best){best=d;bt=(cum[s]+f*Math.sqrt(L2))/tot}}arr[v]=bt}
+      o.geometry.setAttribute("aProg",new THREE.BufferAttribute(arr,1))});
+    U={uFront:{value:-1},uBase:{value:.25},uGlow:{value:0},uFlash:{value:0}};
+    var done={};obj.traverse(function(o){if(!o.isMesh)return;(Array.isArray(o.material)?o.material:[o.material]).forEach(function(mt){if(done[mt.uuid])return;done[mt.uuid]=1;
+      mt.onBeforeCompile=function(sh){Object.assign(sh.uniforms,U);
+        sh.vertexShader=sh.vertexShader.replace("#include <common>","#include <common>\nattribute float aProg;\nvarying float vProg;").replace("#include <begin_vertex>","#include <begin_vertex>\nvProg=aProg;");
+        sh.fragmentShader=sh.fragmentShader.replace("#include <common>","#include <common>\nuniform float uFront;uniform float uBase;uniform float uGlow;uniform float uFlash;\nvarying float vProg;")
+          .replace("#include <emissivemap_fragment>","#include <emissivemap_fragment>\n{float lit=1.0-smoothstep(uFront-0.008,uFront+0.008,vProg);float edge=lit*exp(-pow((uFront-vProg)/0.035,2.0));totalEmissiveRadiance*=uBase+lit*uGlow+edge*uFlash;}")};mt.needsUpdate=true})})}
+  /* normalise: size, facing, feet on the ground */
+  var box=new THREE.Box3().setFromObject(obj),sph=box.getBoundingSphere(new THREE.Sphere()),R0=m.kind==="goji"?2.35:m.fit==="fly"?2.5:2.3;
+  holder.scale.setScalar(R0/(sph.radius||1));grp.updateMatrixWorld(true);
+  var hd=boneFind(B,/^bip_head(_\d+)?$/),pv=boneFind(B,/^bip_pelvis(_\d+)?$/),tl2=B["bip_tail_11"]||B["bip_tail_9"],fw=new V3(0,0,1);
+  if(hd&&(tl2||pv)){fw=wp(hd).sub(wp(tl2||pv));fw.y=0;if(fw.lengthSq()<1e-8)fw.set(0,0,1)}
+  holder.rotation.y=(m.yaw||0)-Math.atan2(fw.x,fw.z);grp.updateMatrixWorld(true);
+  box.setFromObject(obj);var ctr=(m.fit!=="fly"&&pv)?wp(pv):box.getCenter(new V3());
+  var lift=m.fit==="fly"?.9:0;holder.position.set(-ctr.x,-box.min.y+lift,-ctr.z);grp.updateMatrixWorld(true);
+  box.setFromObject(obj);var e={id:id,m:m,obj:obj,grp:grp,holder:holder,B:B,wp:wp,U:U,box:box.clone(),sph:box.getBoundingSphere(new THREE.Sphere()),baseY:holder.position.y,mats:[]};
+  obj.traverse(function(o){if(o.isMesh)(Array.isArray(o.material)?o.material:[o.material]).forEach(function(mt){if(e.mats.indexOf(mt)<0)e.mats.push(mt)})});
+  e.emit0=e.mats.map(function(mt){return mt.emissiveIntensity||0});e.vkey=id+"#"+(vi||0);
+  if(!boneFind(B,/^bip_head(_\d+)?$/)){var pts=[],vv=new V3(),H=box.max.y-box.min.y;obj.traverse(function(o){if(!o.isMesh)return;var pos=o.geometry.attributes.position,st=Math.max(1,Math.floor(pos.count/6000));for(var q=0;q<pos.count;q+=st){vv.fromBufferAttribute(pos,q).applyMatrix4(o.matrixWorld);pts.push(vv.clone())}});
+    var mx=0;pts.forEach(function(p){mx=Math.max(mx,Math.abs(p.x))});e.wingPts=pts.filter(function(p){return Math.abs(p.x)>mx*.5&&p.y>box.min.y+H*.35});
+    var fw0=new V3(Math.sin(holder.rotation.y),0,Math.cos(holder.rotation.y)),top=pts.filter(function(q){return q.y>box.max.y-H*.18}).sort(function(a,b){return b.dot(fw0)-a.dot(fw0)}),k5=Math.max(4,Math.floor(top.length*.06));top=top.slice(0,k5);
+    if(top.length)e.headPt=top.reduce(function(a,b){return a.add(b)},new V3()).multiplyScalar(1/top.length)}
+  rig(e);grp.visible=false;return e}
+ /* --- procedural rig --- */
+ var qa=new Q(),qb=new Q();
+ function rig(e){var B=e.B,grp=e.grp,wp=e.wp,hl=boneFind(B,/^bip_hip_l(_\d+)?$/),hr=boneFind(B,/^bip_hip_r(_\d+)?$/),LAT=hl&&hr?wp(hl).sub(wp(hr)).setY(0).normalize():new V3(1,0,0).applyAxisAngle(UP,e.holder.rotation.y);
+  var FWD=new V3().crossVectors(LAT,UP).normalize();e.FWD=FWD.clone();
+  function prep(b){if(typeof b==="string")b=B[b];if(!b||!b.parent)return null;var pq=b.parent.getWorldQuaternion(new Q()).invert();return{b:b,rest:b.quaternion.clone(),yaw:UP.clone().applyQuaternion(pq),pitch:LAT.clone().applyQuaternion(pq),roll:FWD.clone().applyQuaternion(pq)}}
+  e.prep=prep;
+  function far(p){var o=p.b.getWorldPosition(new V3()),best=null,bd=0;p.b.traverse(function(c){if(c===p.b)return;var d=c.getWorldPosition(new V3()).distanceTo(o);if(d>bd){bd=d;best=c}});return best}
+  function signUp(p,tip){if(!p||!tip)return 1;grp.updateMatrixWorld(true);var a0=tip.getWorldPosition(new V3()).y;rotB(p,0,.25);grp.updateMatrixWorld(true);var a1=tip.getWorldPosition(new V3()).y;p.b.quaternion.copy(p.rest);grp.updateMatrixWorld(true);return a1>a0?1:-1}
+  var f=function(re){return boneFind(B,re)};
+  e.R={spine:[0,1,2,3].map(function(i){return prep(f(new RegExp("^bip_spine_"+i+"(_\\d+)?$")))}),neck:[prep(f(/^bip_neck(_\d+)?$/)),prep(B["bip_neck_1"]),prep(B["bip_neck_2"])],head:prep(f(/^bip_head(_\d+)?$/)),jaw:prep(f(/^bip_jaw(_\d+)?$/)),
+    tail:["bip_tail","bip_tail_1","bip_tail_2","bip_tail_3","bip_tail_4","bip_tail_5","bip_tail_6","bip_tail_7","bip_tail_8","bip_tail_9","bip_tail_10","bip_tail_11"].map(prep).filter(Boolean),
+    arm:[prep(f(/^bip_upperarm_l(_\d+)?$/)),prep(f(/^bip_upperarm_r(_\d+)?$/))],fore:[prep(f(/^bip_lowerarm_l(_\d+)?$/)),prep(f(/^bip_lowerarm_r(_\d+)?$/))],
+    wing:[prep(B["bip_uppearm_l"]),prep(B["bip_uppearm_r"])],wing2:[prep(B["bip_lowearm_l"]),prep(B["bip_lowearm_r"])]};
+  var R=e.R;e.headTip=R.head?far(R.head):null;e.headUp=signUp(R.head,e.headTip);e.jawDown=-signUp(R.jaw,R.jaw?far(R.jaw)||B["def_c_lipLwr_joint"]:null);e.chestUp=signUp(R.spine[2]||R.spine[1],e.headTip);
+  e.wingUp=[signUp(R.wing[0],R.wing[0]?far(R.wing[0]):null),signUp(R.wing[1],R.wing[1]?far(R.wing[1]):null)];
+  if(e.m.kind==="goji"){e.chain=["bip_tail_11","bip_tail_10","bip_tail_9","bip_tail_8","bip_tail_7","bip_tail_6","bip_tail_5","bip_tail_4","bip_tail_3","bip_tail_2","bip_tail_1","bip_tail","bip_pelvis","bip_spine_0","bip_spine_1","bip_spine_2","bip_spine_3","bip_neck","bip_neck_1","bip_neck_2","bip_head"].filter(function(n){return B[n]})}
+  if(e.m.kind==="ghidorah"){e.heads=[];e.obj.traverse(function(o){if(o.isMesh&&/kepala/i.test(o.name)){var bb=new THREE.Box3().setFromObject(o);e.heads.push(bb.getCenter(new V3()))}})}}
+ function rotB(p,y,x,z){if(!p)return;qa.setFromAxisAngle(p.yaw,y);qb.setFromAxisAngle(p.pitch,x);p.b.quaternion.copy(qa).multiply(qb);if(z){p.b.quaternion.multiply(new Q().setFromAxisAngle(p.roll,z))}p.b.quaternion.multiply(p.rest)}
+ /* camera framing */
+ var target=new V3(),baseDist=6,camEnd=new V3(0,1,6);
+ function frame(){if(!cur||VS.on)return;var vf=camera.fov*Math.PI/180,hf=2*Math.atan(Math.tan(vf/2)*camera.aspect),b=cur.box,H=b.max.y-b.min.y,W=Math.max(b.max.x-b.min.x,b.max.z-b.min.z);
+   baseDist=Math.max((H/2)/Math.tan(vf/2)*1.12,(W/2)/Math.tan(hf/2)*1.02)+W*.22;target.set(0,b.min.y+H*.47,0);controls.minDistance=baseDist*.18;controls.maxDistance=baseDist*2.6}
+ function resize(){var r=(cv3.parentElement||stageEl).getBoundingClientRect(),w=Math.max(2,r.width),h=Math.max(2,r.height);renderer.setSize(w,h,false);composer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();frame();if(VS.on){vsBgSize();mkBg(VS.cv);vsFrame()}else mkBg()}
+ /* run state */
+ var running=false,fireT0=-1e9,fireAct=null,VS={on:false},FIRE_LEN={heat:7.6,gravity:6,storm:7,lava:5,glow:6,emp:4.5,frost:6,proton:6,breath:6},shake=new V3(),introT0=0,introFrom=null,tmpA=new V3();
+ function ease(x){x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)}
+ function outBack(x){x=Math.max(0,Math.min(1,x));var c1=1.4,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2)}
+ function chainPoint(e,f){var P=e.chain.map(function(n){return e.wp(n)}),cum=[0];for(var i=1;i<P.length;i++)cum.push(cum[i-1]+P[i].distanceTo(P[i-1]));var t=Math.max(0,Math.min(1,f))*cum[cum.length-1];
+   for(i=1;i<P.length;i++)if(cum[i]>=t){var k=(t-cum[i-1])/((cum[i]-cum[i-1])||1);return P[i-1].clone().lerp(P[i],k)}return P[P.length-1]}
+ function animate(e,ts,fx){var t=ts/1000,R=e.R,m=e.m,act=fx===false?null:fireAct,p=(ts-fireT0)/1000,L=FIRE_LEN[act]||0,on=!!act&&p>=0&&p<L,amp=0;
+  if(fx!==false){if(!on&&act&&p>=L){fireAct=null;document.querySelectorAll("#g3acts .fire").forEach(function(b){b.disabled=false})}
+  bloom.strength=.45;fxLight.intensity=0;beams.forEach(function(b){b.visible=false});BOLTS.forEach(function(b){if(ts>b.until)b.m.visible=false});wave.material.opacity=0;spM.opacity=0;GFX.flick=0;GFX.flash*=.88;hemi.intensity=.9+GFX.flash*1.2}
+  var br=Math.sin(t*1.25),lift=0,jaw=0,charge=0;
+  if(act==="heat"&&on){
+    /* 1) dorsal plates light one segment at a time, tail tip → head  2) full charge  3) atomic breath  4) fade */
+    var N=16,front=-1,glow=0,flash=0,beamK=0;
+    if(p<3.2){var k=p/3.2,step=Math.floor(k*N),inStep=k*N-step;front=(step+1)/N*.97;glow=1.1+.5*k;flash=2.2*Math.exp(-inStep*5);charge=k*.6;amp=.004*Math.exp(-inStep*6)}
+    else if(p<3.9){var c=ease((p-3.2)/.7);front=1.05;glow=1.6+.6*c;flash=0;charge=.6+.4*c;lift=c;jaw=c*.4;amp=.008*c}
+    else if(p<6){front=1.05;glow=2.2;charge=1;lift=1;jaw=1;beamK=Math.min(1,(p-3.9)/.25);amp=.025}
+    else{var d=ease((p-6)/1.6);front=1.05;glow=2.2*(1-d);charge=1-d;lift=1-d;jaw=1-d;beamK=Math.max(0,1-(p-6)/.45)}
+    var fl=reduce?1:(.85+.15*Math.sin(t*38)*Math.sin(t*13));e.U.uFront.value=front;e.U.uGlow.value=glow*fl;e.U.uFlash.value=flash;
+    bloom.strength=.42+.12*charge+.35*beamK;
+    if(e.chain){var cp=chainPoint(e,Math.min(1,front));fxLight.position.copy(cp).addScaledVector(UP,.3);fxLight.color.setHex(0x7fe6ff);fxLight.intensity=(2+4*charge)*fl+beamK*5}
+    e.beamK=beamK}
+  else if(e.U){e.U.uFront.value=-1;e.U.uGlow.value=0;e.U.uFlash.value=0;e.beamK=0;e.beamCol=null}
+  var em=1;
+  if(act==="lava"&&on){charge=p<1.4?ease(p/1.4):p<3.4?1:1-ease((p-3.4)/1.6);em=1+7*charge*(reduce?1:.85+.15*Math.sin(t*23));bloom.strength=.45+charge;fxLight.color.setHex(0xff6a1a);fxLight.position.set(0,e.box.max.y*.7,0);fxLight.intensity=30*charge;amp=.01*charge}
+  if(act==="glow"&&on){charge=p<1.2?ease(p/1.2):p<4.4?1:1-ease((p-4.4)/1.6);em=1+9*charge*(reduce?1:.75+.25*Math.sin(t*6));bloom.strength=.45+.9*charge;fxLight.color.setHex(0x9ff8ff);fxLight.position.set(0,e.box.max.y*.6,0);fxLight.intensity=24*charge;spM.opacity=.9*charge}
+  if(act==="emp"&&on){charge=p<.8?ease(p/.8):p<2.6?1:1-ease((p-2.6)/1.9);em=1+8*charge;bloom.strength=.45+charge*.9;var wk=Math.max(0,(p-.8)/2.4);wave.scale.setScalar(.5+wk*14);wave.material.color.setHex(0x9fdcff);wave.material.opacity=wk>0&&wk<1?(1-wk)*.9:0;
+    GFX.flick=charge>.5?1:0;fxLight.color.setHex(0x9fdcff);fxLight.position.set(0,e.box.max.y*.8,0);fxLight.intensity=20*charge*(Math.random()<.3?0:1);amp=.01*charge}
+  if(act==="storm"&&on){charge=p<.6?ease(p/.6):p<5.6?1:1-ease((p-5.6)/1.4);bloom.strength=.45+.35*charge;e.mats.forEach(function(mt){mt.emissiveIntensity=.12*charge*(Math.random()<.2?2.5:1)});
+    if(p<5.8&&ts>(e.nextStrike||0)&&e.wingPts&&e.wingPts.length){e.nextStrike=ts+(reduce?500:30+Math.random()*90);var wpnt=e.grp.localToWorld(e.wingPts[Math.floor(Math.random()*e.wingPts.length)].clone()),sky=wpnt.clone().add(new V3((Math.random()-.5)*3,4+Math.random()*3,(Math.random()-.5)*3));
+      spawnBolt(sky,wpnt,.9,.0045,Math.random()<.6?0xff9a3c:0xffc070,ts,90+Math.random()*120);
+      if(Math.random()<.7){var gnd=wpnt.clone().add(new V3((Math.random()-.5)*4,0,(Math.random()-.5)*4));gnd.y=0;spawnBolt(wpnt,gnd,.7,.0035,0xffa64a,ts,80+Math.random()*100)}
+      if(Math.random()<.4){var w2=e.grp.localToWorld(e.wingPts[Math.floor(Math.random()*e.wingPts.length)].clone());spawnBolt(wpnt,w2,.5,.003,0xffb860,ts,90)}
+      GFX.flash=Math.max(GFX.flash,.18+Math.random()*.18);fxLight.color.setHex(0xff9a3c);fxLight.position.copy(wpnt);fxLight.intensity=14}amp=.008*charge}
+  if(act==="gravity"&&on&&e.heads&&ts>(e.nextG||0)){e.nextG=ts+70;var gk=p<1.2?0:p<4.2?1:0;if(gk)e.heads.forEach(function(hp,i){var w=e.grp.localToWorld(hp.clone()),dir=e.FWD.clone().add(new V3((i-1)*.35,.12,0)).normalize().applyQuaternion(e.grp.quaternion);
+      spawnBolt(w,w.clone().addScaledVector(dir,12),.6,.009,0xffb43a,ts,80);spawnBolt(w,w.clone().addScaledVector(dir,7).add(new V3(0,(Math.random()-.5)*2,0)),.5,.004,0xffd27a,ts,80);spawnBolt(w,w.clone().addScaledVector(dir,5).add(new V3((Math.random()-.5)*1.5,(Math.random()-.5)*1.5,0)),.5,.003,0xff9a3c,ts,70)})}
+  if(act==="frost"&&on){charge=p<1.6?ease(p/1.6):p<4.4?1:1-ease((p-4.4)/1.6);em=1+14*charge;bloom.strength=.45+.9*charge;lift=charge;jaw=charge;fxLight.color.setHex(0xbfefff);fxLight.position.set(0,e.box.max.y*.9,0);fxLight.intensity=25*charge;
+    e.beamK=p<1.6?0:p<4.4?Math.min(1,(p-1.6)/.25):Math.max(0,1-(p-4.4)/.4);e.beamCol=[0xf2fdff,0x8fe3ff];var wk2=Math.max(0,(p-1.6)/2.6);wave.scale.setScalar(.5+wk2*12);wave.material.color.setHex(0xcff6ff);wave.material.opacity=wk2>0&&wk2<1?(1-wk2)*.8:0;amp=.02*charge}
+  if(act==="breath"&&on){charge=p<1.3?ease(p/1.3):p<4.3?1:1-ease((p-4.3)/1.5);lift=charge;jaw=charge;bloom.strength=.42+.15*charge;fxLight.color.setHex(m.breath[1]);fxLight.position.set(0,e.box.max.y*.9,0);fxLight.intensity=6*charge;
+    e.beamK=p<1.3?0:p<4.3?Math.min(1,(p-1.3)/.2):Math.max(0,1-(p-4.3)/.4);e.beamCol=m.breath;amp=.02*charge}
+  if(act==="proton"&&on){charge=p<1.4?ease(p/1.4):p<4.4?1:1-ease((p-4.4)/1.6);em=1+10*charge;bloom.strength=.45+.9*charge;fxLight.color.setHex(0xff3a2a);fxLight.position.set(0,e.box.max.y*.8,0);fxLight.intensity=30*charge;
+    e.beamK=p<1.4?0:p<4.4?Math.min(1,(p-1.4)/.25):Math.max(0,1-(p-4.4)/.4);e.beamCol=[0xffe1dc,0xff2a1a];amp=.025*charge}
+  if(m.kind==="ghidorah"&&!(on&&(act==="gravity"||act==="storm")))e.mats.forEach(function(mt){mt.emissiveIntensity=0});
+  if(m.kind==="ghidorah"&&act==="gravity"&&on){charge=p<1.2?ease(p/1.2):p<4.2?1:1-ease((p-4.2)/1.8);e.mats.forEach(function(mt){mt.emissiveIntensity=.5*charge});bloom.strength=.5+.9*charge;amp=.02*charge;fxLight.color.setHex(0xffc24a);fxLight.position.set(0,e.box.max.y*.8,0);fxLight.intensity=25*charge}
+  if(fx!==false&&!(on&&(act==="frost"||act==="proton"||act==="breath"))&&m.kind!=="goji")e.beamK=0;
+  if(m.kind!=="ghidorah"&&m.kind!=="goji")e.mats.forEach(function(mt,i){mt.emissiveIntensity=e.emit0[i]*em});
+  /* idle motion */
+  var fly=m.fit==="fly";e.holder.position.y=e.baseY+(fly?Math.sin(t*1.1)*.12:0);if(fly)e.holder.rotation.z=Math.sin(t*.7)*.04;
+  if(m.kind==="kong"){var s=1+.006*br;e.holder.scale.y=e.holder.scale.x*s}
+  R.spine.forEach(function(s,i){rotB(s,Math.sin(t*.5+i*.3)*.01,br*.012-e.chestUp*lift*.05)});
+  R.neck.forEach(function(s,i){rotB(s,Math.sin(t*.33+i*.2)*.05*(1-lift),e.headUp*lift*.1+Math.sin(t*.6)*.012)});
+  rotB(R.head,Math.sin(t*.33+.6)*.06*(1-lift),e.headUp*lift*.18+Math.sin(t*.6+.4)*.02);
+  rotB(R.jaw,0,e.jawDown*(.03+.025*Math.max(0,Math.sin(t*.7))+jaw*.42));
+  R.tail.forEach(function(s,i){var a=(.03+i*.006)*(1+charge*.8);rotB(s,Math.sin(t*.85-i*.42)*a,Math.sin(t*.6-i*.3)*.012)});
+  R.arm.forEach(function(s,i){rotB(s,0,Math.sin(t*1.25+i)*.025)});R.fore.forEach(function(s,i){rotB(s,0,Math.sin(t*1.1+i*.7)*.03)});
+  if(R.wing[0]){var fa=Math.sin(t*1.6)*.16;R.wing.forEach(function(s,i){rotB(s,0,0,(i?-1:1)*fa)});R.wing2.forEach(function(s,i){rotB(s,0,0,(i?-1:1)*fa*.6)})}
+  e.grp.updateMatrixWorld(true);
+  /* Godzilla breath */
+  if(e.beamK>0&&fx!==false){var hb=boneFind(e.B,/^bip_head(_\d+)?$/),mU=e.wp("def_c_lipUpr_joint"),mL=e.wp("def_c_lipLwr_joint"),hp=hb?e.wp(hb):null,mo,dir;
+    if(mU&&mL)mo=mU.add(mL).multiplyScalar(.5);else if(e.headTip)mo=e.headTip.getWorldPosition(new V3());else if(e.headPt)mo=e.grp.localToWorld(e.headPt.clone());else mo=new V3(0,e.box.max.y*.85,0);
+    if(hp&&hp.distanceTo(mo)>1e-4)dir=tmpA.copy(mo).sub(hp).normalize();else dir=tmpA.copy(e.FWD).applyQuaternion(e.grp.quaternion);dir.y=Math.max(-.05,Math.min(.35,dir.y))+.06;dir.normalize();
+    var bc=e.beamCol||[0xeefcff,0x3fc0ff];beams[0].userData.c.material.color.setHex(bc[0]);beams[0].userData.o.material.color.setHex(bc[1]);
+    setBeam(beams[0],mo,dir,22*e.beamK,.02*(reduce?1:1+.12*Math.sin(t*60)),e.beamK)}
+  /* Mothra scales */
+  if(spM.opacity>0){var arr=spG.attributes.position.array,c0=e.grp.position;for(var i=0;i<spN;i++){var v=spV[i];if(arr[i*3+1]<=0||arr[i*3+1]>e.box.max.y*1.6||Math.random()<.004){var rr=Math.random()*e.sph.radius*.9,an=Math.random()*6.283;arr[i*3]=Math.cos(an)*rr;arr[i*3+1]=e.box.min.y+(e.box.max.y-e.box.min.y)*(.4+.5*Math.random());arr[i*3+2]=Math.sin(an)*rr*.5}
+    arr[i*3]+=v.x;arr[i*3+1]+=v.y-.006;arr[i*3+2]+=v.z}spG.attributes.position.needsUpdate=true}
+  return amp}
+ function loop3(ts){if(!running)return;requestAnimationFrame(loop3);
+  if(VS.on){shrine.visible=false;vsDraw(ts);var a2=0;VS.ents.forEach(function(x){if(x.e)a2=Math.max(a2,animate(x.e,ts,false))});pulse.material.opacity=0;controls.update();if(bgTex)bgTex.needsUpdate=true;composer.render();return}
+  if(!cur){if(bgTex)bgTex.needsUpdate=true;composer.render();return}
+  var ik=reduce?1:(ts-introT0)/2200;root.scale.setScalar(.06+.94*outBack(ik));
+  if(introFrom&&ik<1){camera.position.lerpVectors(introFrom,camEnd,ease(ik))}else introFrom=null;
+  shrine.visible=cur.id==="king-ghidorah"&&G3.cur==="volcano";
+  var amp=animate(cur,ts);
+  var pk=reduce?.5:(ts/3200)%1;pulse.scale.setScalar(.6+pk*6);pulse.material.opacity=(1-pk)*.6;
+  controls.update();amp=reduce?0:amp;if(amp){shake.set((Math.random()-.5)*amp,(Math.random()-.5)*amp,(Math.random()-.5)*amp);camera.position.add(shake)}
+  if(bgTex)bgTex.needsUpdate=true;composer.render();if(amp)camera.position.sub(shake)}
+ function getModel(id,vi,prog){var k=id+"#"+(vi||0);if(!CACHE[k])CACHE[k]=loadModel(id,vi||0,prog||function(){});CACHE[k].catch(function(){delete CACHE[k]});return CACHE[k]}
+ function resetGrp(e){shrine.visible=false;e.grp.position.set(0,0,0);e.grp.rotation.set(0,0,0);e.grp.scale.setScalar(1);e.grp.visible=false}
+ async function show(id,force){var vi=MODELS[id]&&MODELS[id].variants?G3.variant:0,key=id+"#"+vi;if(VS.on)return;if(cur&&cur.vkey===key&&!force){start();return}
+  if(cur&&cur.vkey===key){start();return}
+  if(cur)resetGrp(cur);cur=null;start();fireT0=-1e9;fireAct=null;
+  var e;try{setLoad("载入模型 0%",.05);e=await getModel(id,vi,function(f){setLoad("载入模型 "+Math.round(f*100)+"%",.05+.85*f)})}
+  catch(err){setLoad("模型文件载入失败（"+(err&&err.message||err)+"）",-1);return}
+  var nvi=MODELS[id]&&MODELS[id].variants?G3.variant:0;if(G3.id!==id||!G3.open||VS.on||nvi!==vi)return;setLoad("",null);if(cur)resetGrp(cur);cur=e;resetGrp(e);e.grp.visible=true;
+  frame();var b=e.box,H=b.max.y-b.min.y,Wd2=Math.max(b.max.x-b.min.x,b.max.z-b.min.z),c=e.m.cam||{},S0=Math.max(H,Wd2*.55);
+  var fw=(e.FWD?e.FWD.clone():new V3(0,0,1));fw.y=0;if(fw.lengthSq()<1e-6)fw.set(0,0,1);fw.normalize();var side=new V3().crossVectors(UP,fw).normalize();
+  var d=(c.d||.62)*S0,eye=b.min.y+(c.e||.035)*H,tY=b.min.y+(c.t||.74)*H;camera.fov=c.fov||58;camera.updateProjectionMatrix();
+  var hp=e.headPt?e.grp.localToWorld(e.headPt.clone()):null,hb=boneFind(e.B,/^bip_head(_\d+)?$/);if(hb)hp=e.wp(hb);
+  target.set(0,tY,0);if(hp){target.x=hp.x*.5;target.z=hp.z*.5;target.y=Math.max(tY*.85,Math.min(hp.y,b.max.y))}
+  camEnd=target.clone().setY(0).addScaledVector(fw,d).addScaledVector(side,d*.14);camEnd.y=eye;
+  scene.fog.near=S0*4;scene.fog.far=S0*10;setShadow(Math.max(5,S0*1.4));controls.target.copy(target);controls.minDistance=H*.06;controls.maxDistance=S0*6;controls.autoRotate=$("g3rot").getAttribute("aria-pressed")==="true";
+  placeShrine(e,fw,side,d);
+  introT0=performance.now();introFrom=target.clone().addScaledVector(fw,d*2.6).add(new V3(0,H*1.1,0));camera.position.copy(introFrom);controls.update()}
+ function setShadow(r){var c=key.shadow.camera;c.left=c.bottom=-r;c.right=c.top=r;c.far=r*6+10;key.position.set(r*.8,r*1.6,r);c.updateProjectionMatrix()}
+ function start(){resize();if(!running){running=true;requestAnimationFrame(loop3)}cv3.classList.add("on")}
+ function zoom(f){var off=camera.position.clone().sub(controls.target),d=Math.max(controls.minDistance,Math.min(controls.maxDistance,off.length()*f));off.setLength(d);camera.position.copy(controls.target).add(off);controls.update()}
+ cv3.addEventListener("wheel",function(ev){ev.preventDefault();zoom(Math.exp(ev.deltaY*(ev.ctrlKey?.016:.0025)))},{passive:false});
+ var tpd=0;cv3.addEventListener("touchstart",function(ev){if(ev.touches.length===2)tpd=Math.hypot(ev.touches[0].clientX-ev.touches[1].clientX,ev.touches[0].clientY-ev.touches[1].clientY)},{passive:true});
+ cv3.addEventListener("touchmove",function(ev){if(ev.touches.length===2&&tpd){var dd=Math.hypot(ev.touches[0].clientX-ev.touches[1].clientX,ev.touches[0].clientY-ev.touches[1].clientY);zoom(Math.pow(tpd/dd,1.6));tpd=dd;ev.preventDefault()}},{passive:false});
+ var gs=1;cv3.addEventListener("gesturestart",function(ev){ev.preventDefault();gs=1});cv3.addEventListener("gesturechange",function(ev){ev.preventDefault();zoom(Math.pow(gs/ev.scale,1.6));gs=ev.scale});cv3.addEventListener("gestureend",function(ev){ev.preventDefault()});
+ /* ---------- VS arena: both titans at real scale, facing each other ---------- */
+ VS.cv=mkc(2,2);VS.x=VS.cv.getContext("2d");VS.ents=[];
+ var pillarMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.18,blending:THREE.AdditiveBlending,depthWrite:false,fog:false,side:THREE.DoubleSide});
+ var vsExtra=new THREE.Group();scene.add(vsExtra);
+ function vh(id){var m=MODELS[id];return m&&m.variants&&m.variants[0].h||null}
+ function realH(t){return t.height_m||(t.length_m?t.length_m*.35:null)||50}
+ function vsBgSize(){var r=cv3.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,1.5);var w=Math.max(2,Math.round(r.width*d)),h=Math.max(2,Math.round(r.height*d));if(VS.cv.width!==w||VS.cv.height!==h){VS.cv.width=w;VS.cv.height=h}}
+ function vsDraw(ts){var c=VS.x,w=VS.cv.width,h=VS.cv.height,A=byId[VS.a],B=byId[VS.b];if(!A||!B)return;
+  var g=c.createLinearGradient(0,0,w,0);g.addColorStop(0,"#03090d");g.addColorStop(.5,"#071a22");g.addColorStop(1,"#03090d");c.fillStyle=g;c.fillRect(0,0,w,h);
+  var la=A.locations&&A.locations[0],lb=B.locations&&B.locations[0],ka=sceneKey(la&&la.name),kb=sceneKey(lb&&lb.name),sa=sceneCv(ka,sceneTag(la&&la.name,ka),A.color,w,h),sb=sceneCv(kb,sceneTag(lb&&lb.name,kb),B.color,w,h);
+  var sl=w*.06,mid=w/2,dr=reduce?0:Math.sin(ts/1800)*w*.004;
+  c.save();c.beginPath();c.moveTo(0,0);c.lineTo(mid+sl+dr,0);c.lineTo(mid-sl+dr,h);c.lineTo(0,h);c.closePath();c.clip();c.globalAlpha=.95;c.drawImage(sa,-w*.22,0);
+  var ga=c.createLinearGradient(0,0,mid,0);ga.addColorStop(0,hexA(A.color,.38));ga.addColorStop(1,hexA(A.color,0));c.globalAlpha=1;c.fillStyle=ga;c.fillRect(0,0,mid+sl,h);c.restore();
+  c.save();c.beginPath();c.moveTo(mid+sl+dr,0);c.lineTo(w,0);c.lineTo(w,h);c.lineTo(mid-sl+dr,h);c.closePath();c.clip();c.translate(w,0);c.scale(-1,1);c.globalAlpha=.95;c.drawImage(sb,-w*.22,0);c.restore();
+  c.save();c.beginPath();c.moveTo(mid+sl+dr,0);c.lineTo(w,0);c.lineTo(w,h);c.lineTo(mid-sl+dr,h);c.closePath();c.clip();var gb=c.createLinearGradient(w,0,mid,0);gb.addColorStop(0,hexA(B.color,.38));gb.addColorStop(1,hexA(B.color,0));c.fillStyle=gb;c.fillRect(mid-sl,0,w,h);c.restore();
+  /* speed lines from the clash point */
+  var cx=mid,cy=h*.42,rot=reduce?0:ts/4000;c.save();c.globalCompositeOperation="lighter";for(var i=0;i<46;i++){var an=i/46*Math.PI*2+rot*(i%2?1:-1)*.2,r0=h*(.18+.1*((i*37)%7)/7),r1=Math.max(w,h);
+   c.strokeStyle=i%2?hexA(A.color,.1):hexA(B.color,.1);c.lineWidth=1+((i*13)%5);c.beginPath();c.moveTo(cx+Math.cos(an)*r0,cy+Math.sin(an)*r0);c.lineTo(cx+Math.cos(an)*r1,cy+Math.sin(an)*r1);c.stroke()}c.restore();
+  /* the slash */
+  c.save();c.shadowColor="#f3a83a";c.shadowBlur=h*.04;c.strokeStyle="rgba(255,236,200,.95)";c.lineWidth=Math.max(2,h*.006);c.beginPath();c.moveTo(mid+sl+dr,0);c.lineTo(mid-sl+dr,h);c.stroke();c.restore();
+  /* VS emblem */
+  var pul=reduce?1:1+.04*Math.sin(ts/220);c.save();c.translate(mid,h*.17);c.scale(pul,pul);c.font="700 "+Math.round(h*.17)+"px 'Chakra Petch',sans-serif";c.textAlign="center";c.textBaseline="middle";
+  c.lineWidth=h*.012;c.strokeStyle="#f3a83a";c.shadowColor="#f3a83a";c.shadowBlur=h*.05;c.strokeText("VS",0,0);c.shadowBlur=0;var vg=c.createLinearGradient(0,-h*.08,0,h*.08);vg.addColorStop(0,"#ffffff");vg.addColorStop(1,"#ffd58a");c.fillStyle=vg;c.fillText("VS",0,0);c.restore();
+  /* name plates */
+  c.save();c.font="700 "+Math.round(h*.052)+"px 'Chakra Petch','Noto Sans SC',sans-serif";c.textBaseline="top";c.shadowColor="rgba(0,0,0,.8)";c.shadowBlur=8;
+  c.textAlign="left";c.fillStyle=A.color;c.fillText(A.name_cn.replace(/（.*?）/g,""),w*.03,h*.04);c.textAlign="right";c.fillStyle=B.color;c.fillText(B.name_cn.replace(/（.*?）/g,""),w*.97,h*.04);
+  c.font="500 "+Math.round(h*.03)+"px 'IBM Plex Mono',monospace";c.fillStyle="rgba(220,235,238,.8)";c.textAlign="left";c.fillText((vh(VS.a)||realH(A))+" m",w*.03,h*.105);c.textAlign="right";c.fillText((vh(VS.b)||realH(B))+" m",w*.97,h*.105);c.restore();
+  var vg2=c.createRadialGradient(w/2,h/2,Math.min(w,h)*.35,w/2,h/2,Math.max(w,h)*.75);vg2.addColorStop(0,"rgba(3,9,13,0)");vg2.addColorStop(1,"rgba(3,9,13,.8)");c.fillStyle=vg2;c.fillRect(0,0,w,h)}
+ function hexA(hex,a){var n=parseInt(hex.slice(1),16);return"rgba("+(n>>16&255)+","+(n>>8&255)+","+(n&255)+","+a+")"}
+ function clearExtra(){while(vsExtra.children.length){var o=vsExtra.children.pop();o.traverse(function(q){if(q.geometry)q.geometry.dispose();if(q.material&&q.material!==pillarMat){if(q.material.map)q.material.map.dispose();q.material.dispose()}})}}
+ function labelSprite(text,color,hpx){var cv=mkc(512,128),x=cv.getContext("2d");x.font="700 56px 'Chakra Petch','Noto Sans SC',sans-serif";x.textAlign="center";x.textBaseline="middle";x.fillStyle=color;x.shadowColor="#000";x.shadowBlur=10;x.fillText(text,256,64);
+   var t=new THREE.CanvasTexture(cv);t.colorSpace=THREE.SRGBColorSpace;var sp=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthWrite:false,fog:false}));sp.scale.set(hpx*4,hpx,1);return sp}
+ function ruler(maxH,k,x,z){var g=new THREE.Group(),step=maxH>200?100:maxH>80?25:10;var lm=new THREE.LineBasicMaterial({color:0x63d2e4,transparent:true,opacity:.55,fog:false});
+   var pts=[new V3(0,0,0),new V3(0,maxH*k,0)];for(var m2=step;m2<=maxH+1e-6;m2+=step){pts.push(new V3(-.08,m2*k,0),new V3(.08,m2*k,0));var sp=labelSprite(m2+" m","#86a3ad",.16);sp.position.set(.42,m2*k,0);g.add(sp)}
+   g.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts),lm));g.position.set(x,0,z);return g}
+ function pillar(t,h){var g=new THREE.Group(),m=new THREE.Mesh(new THREE.CylinderGeometry(.22,.3,h,24,1,true),pillarMat.clone());m.material.color.set(t.color);m.position.y=h/2;g.add(m);
+   var ring=new THREE.Mesh(new THREE.RingGeometry(.3,.36,48),new THREE.MeshBasicMaterial({color:t.color,transparent:true,opacity:.8,side:THREE.DoubleSide,fog:false}));ring.rotation.x=-Math.PI/2;ring.position.y=.01;g.add(ring);
+   var cap=new THREE.Mesh(new THREE.RingGeometry(.2,.3,48),ring.material);cap.rotation.x=-Math.PI/2;cap.position.y=h;g.add(cap);var sp=labelSprite("暂无 3D 模型","#dcebee",.14);sp.position.y=h+.25;g.add(sp);return g}
+ async function vs(a,b){VS.on=true;VS.a=a;VS.b=b;var token=VS.token=(VS.token||0)+1;if(cur)resetGrp(cur);VS.ents.forEach(function(x){if(x.e)resetGrp(x.e)});VS.ents=[];clearExtra();
+  start();vsBgSize();mkBg(VS.cv);fireAct=null;beams.forEach(function(q){q.visible=false});BOLTS.forEach(function(q){q.m.visible=false});wave.material.opacity=0;spM.opacity=0;
+  var A=byId[a],B=byId[b],need=[a,b].filter(function(id,i){return hasModel(id)&&!(i===1&&a===b)});$("vsLoad").textContent=need.length?"载入模型 …":"";
+  var es={};try{for(var i=0;i<need.length;i++){es[need[i]]=await getModel(need[i],0)}}catch(err){$("vsLoad").textContent="模型载入失败："+(err&&err.message||err)}
+  if(token!==VS.token||!VS.on)return;$("vsLoad").textContent="";
+  var hA=vh(a)||realH(A),hB=vh(b)||realH(B),maxH=Math.max(hA,hB),k=3/maxH,sides=[[a,A,hA,-1],[b,B,hB,1]],ws=[];
+  sides.forEach(function(sd,i){var e=(i===1&&a===b)?null:es[sd[0]],obj,w;
+    if(e){var hn=(e.box.max.y-e.box.min.y)||1,sc=sd[2]*k/hn;e.grp.scale.setScalar(sc);e.grp.visible=true;var yaw=e.m.yaw||0;e.grp.rotation.y=sd[3]<0?(Math.PI/2-yaw-.35):(-Math.PI/2-yaw+.35);
+      if(e.m.fit==="fly")e.grp.position.y=0;w=Math.max(e.box.max.x-e.box.min.x,e.box.max.z-e.box.min.z)/2*sc;VS.ents.push({e:e,side:sd[3]})}
+    else{obj=pillar(sd[1],sd[2]*k);vsExtra.add(obj);w=.4;VS.ents.push({p:obj,side:sd[3]})}ws.push(w)});
+  var gap=.35+Math.min(ws[0],ws[1])*.15;VS.ents.forEach(function(x,i){var px=x.side*(gap+ws[i]*.8);if(x.e)x.e.grp.position.x=px;else x.p.position.x=px});
+  var W=gap*2+ws[0]*1.8+ws[1]*1.8;VS.W=W;VS.H=3;vsExtra.add(ruler(maxH,k,0,-Math.max(ws[0],ws[1])*.9-.4));
+  vsFrame();camera.position.set(0,1.6,VS.dist*1.6);controls.autoRotate=false;controls.update()}
+ function vsFrame(){if(!VS.on)return;camera.fov=36;camera.updateProjectionMatrix();var vf=camera.fov*Math.PI/180,hf=2*Math.atan(Math.tan(vf/2)*camera.aspect);
+  VS.dist=Math.max((VS.H*.62)/Math.tan(vf/2),(VS.W/2)/Math.tan(hf/2)*1.05)+1;target.set(0,VS.H*.42,0);controls.target.copy(target);controls.minDistance=VS.dist*.25;controls.maxDistance=VS.dist*2.5;
+  scene.fog.near=VS.dist*1.5;scene.fog.far=VS.dist*4;setShadow(Math.max(5,VS.W*.7));if(camera.position.length()<.01||camera.position.distanceTo(target)>VS.dist*3)camera.position.set(0,1.6,VS.dist)}
+ function vsEnd(){if(!VS.on)return;VS.on=false;VS.token++;VS.ents.forEach(function(x){if(x.e)resetGrp(x.e)});VS.ents=[];clearExtra();mkBg();
+  stageEl.insertBefore(cv3,$("globe"));cv3.style.cssText="";if(G3.open){show(G3.id,true)}else{running=false;cv3.classList.remove("on")}}
+ G3.api={show:show,stop:function(){if(VS.on)return;running=false;cv3.classList.remove("on")},
+  fire:function(a){if(!cur||VS.on)return;var L=FIRE_LEN[a]||0;if(fireAct&&performance.now()-fireT0<(FIRE_LEN[fireAct]||0)*1000)return;fireAct=a;fireT0=performance.now();document.querySelectorAll("#g3acts .fire").forEach(function(b){b.disabled=true})},
+  rotate:function(on){controls.autoRotate=on},resize:resize,zoom:zoom,
+  vs:function(a,b){var ar=$("vsArena");if(cv3.parentElement!==ar){ar.insertBefore(cv3,ar.firstChild);cv3.style.cssText="position:absolute;inset:0;width:100%;height:100%;opacity:1;pointer-events:auto"}vs(a,b)},vsEnd:vsEnd};
+ controls.addEventListener("start",function(){if(controls.autoRotate){controls.autoRotate=false;$("g3rot").setAttribute("aria-pressed","false")}});
+ G3.ready=true;G3.loading=false;setLoad("",null);if(G3.vsPending){var vp=G3.vsPending;G3.vsPending=null;G3.api.vs(vp[0],vp[1])}else if(G3.open)show(G3.id);
+}
+
+/* ---------- TW bridge: 包装现有函数发事件（不改函数本体） ---------- */
+(function(){var _sel=select,_ros=roster,_o3=open3D,_ps=playStory,_rv=renderVs,_cv=closeVs;
+  select=function(id,loc){_sel(id,loc);if(byId[id]&&S.sel===id)TW.emit("select",{id:id,titan:byId[id],panel:$("panel")})};
+  roster=function(){_ros.apply(null,arguments);TW.emit("roster",{el:$("roster")})};
+  open3D=function(id,i){_o3(id,i);if(MODELS[id])TW.emit("3d",{id:id})};
+  playStory=function(i){_ps(i);var s=STORY[i];if(s)TW.emit("story",{title:s.title,ids:s.steps.map(function(p){return p[3]})})};
+  renderVs=function(){_rv();TW.emit("vs",{a:VA,b:VB,arena:$("vsArena")})};
+  closeVs=function(){_cv();TW.emit("vsclose",{})};
+  $("g3acts").addEventListener("click",function(e){var b=e.target.closest("button[data-act]");if(b&&G3.id)TW.emit("fire",{id:G3.id,act:b.dataset.act})});
+  ["pointerdown","keydown","wheel"].forEach(function(ev){addEventListener(ev,function(){TW.emit("activity",{})},{passive:true,capture:true})});
+})();
+/* ---------- 点左上角标题：重播开场 ---------- */
+(function(){var h=document.querySelector("header h1"),gate=$("gate");if(!h||!gate)return;
+  h.style.cursor="pointer";h.title="重播开场";h.setAttribute("role","button");h.tabIndex=0;
+  function replay(){if($("vs").classList.contains("on"))closeVs();if(G3.open)close3D();endStory();
+    select(byId.godzilla?"godzilla":D.titans[0].id);S.fly=null;S.zoom=1;S.auto=!reduce;
+    var L0=(byId[S.sel].locations||[])[0];if(L0){S.lon=L0.lon-25;S.lat=Math.max(-40,Math.min(40,L0.lat))}
+    try{history.replaceState(null,"",location.pathname+location.search)}catch(e){}
+    gate.style.display="";void gate.offsetWidth;gate.classList.remove("out");dispatchEvent(new Event("tw:replay"));var go=$("gateGo");if(go)go.focus()}
+  h.addEventListener("click",replay);h.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();replay()}});
+})();
+/* ---------- boot ---------- */
+addEventListener("resize",function(){fit();if($("vs").classList.contains("on"))renderVs()});
+var booted=false;fit();roster();TW.emit("boot",{});if(!S.sel)select(byId.godzilla?"godzilla":D.titans[0].id);booted=true;S.auto=!reduce;S.fly=null;
+var L0=(byId[S.sel].locations||[])[0];if(L0){S.lon=L0.lon-25;S.lat=Math.max(-40,Math.min(40,L0.lat))}
+requestAnimationFrame(loop);
+})();
+</script>
+<script>
+/* ---------- Titan Alert 进入界面：VHS 噪点 / 雾中巨影 / 地震仪 ---------- */
+(function(){
+ var gate=document.getElementById("gate");if(!gate)return;
+ var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+ var nz=document.getElementById("gNoise"),fog=document.getElementById("gFog"),se=document.getElementById("gSeis");
+ var nx=nz.getContext("2d"),fx=fog.getContext("2d"),sx=se.getContext("2d");
+ var tc=document.getElementById("gTc"),mag=document.getElementById("gMag");
+ nz.width=192;nz.height=108;var img=nx.createImageData(192,108);
+ var hist=[],alive=true,t0=performance.now(),STEP=8000; // 与 CSS quake 周期一致
+ function size(){var r=devicePixelRatio>1?1.5:1;fog.width=innerWidth/3|0;fog.height=innerHeight/3|0;se.width=se.clientWidth*r|0;se.height=se.clientHeight*r|0}
+ size();addEventListener("resize",size);
+ function pad(n){return(n<10?"0":"")+n}
+ function frame(ts){
+  if(!alive)return;if(!se.width)size();
+  var t=(ts-t0)/1000,ph=((ts-t0)%STEP)/STEP;
+  // 1. 胶片噪点
+  var d=img.data;for(var i=0;i<d.length;i+=4){var v=Math.random()*255|0;d[i]=d[i+1]=d[i+2]=v;d[i+3]=255}nx.putImageData(img,0,0);
+  // 2. 雾 + 雾中缓慢经过的巨大黑影（无具体造型）
+  var W=fog.width,H=fog.height;fx.clearRect(0,0,W,H);
+  var g=fx.createLinearGradient(0,0,0,H);g.addColorStop(0,"#1b1b1b");g.addColorStop(.55,"#3a3a3a");g.addColorStop(1,"#0d0d0d");fx.fillStyle=g;fx.fillRect(0,0,W,H);
+  var cyc=(t%26)/26,bx=-.4*W+cyc*1.8*W,by=H*.62+Math.sin(t*.9)*H*.01;
+  var rg=fx.createRadialGradient(bx,by,0,bx,by,H*.95);rg.addColorStop(0,"rgba(0,0,0,.93)");rg.addColorStop(.45,"rgba(0,0,0,.6)");rg.addColorStop(1,"rgba(0,0,0,0)");
+  fx.fillStyle=rg;fx.beginPath();fx.ellipse(bx,by,H*.55,H*.95,0,0,Math.PI*2);fx.fill();
+  for(var k=0;k<3;k++){var fy=H*(.45+k*.14),off=(t*(6+k*4))%W;var fg=fx.createLinearGradient(0,fy-H*.1,0,fy+H*.1);fg.addColorStop(0,"rgba(160,160,160,0)");fg.addColorStop(.5,"rgba(160,160,160,"+(.12-k*.02)+")");fg.addColorStop(1,"rgba(160,160,160,0)");fx.fillStyle=fg;fx.fillRect(-off,fy-H*.1,W*2,H*.2)}
+  // 3. 地震仪：每 8 秒一次大冲击（与画面震动同步）
+  var hit=ph>.84&&ph<.95?Math.exp(-(ph-.85)*40)*(ph>=.85?1:0):0;
+  var amp=.05+.04*Math.random()+hit*.95*(Math.random()*2-1>0?1:-1)*Math.random();
+  hist.push(amp*(Math.random()*2-1)+hit*(Math.random()*2-1));if(hist.length>220)hist.shift();
+  var SW=se.width,SH=se.height;sx.clearRect(0,0,SW,SH);
+  sx.strokeStyle="rgba(255,255,255,.18)";sx.lineWidth=1;sx.beginPath();sx.moveTo(0,SH/2);sx.lineTo(SW,SH/2);sx.stroke();
+  sx.strokeStyle="rgba(255,255,255,.85)";sx.lineWidth=2;sx.beginPath();
+  for(var j=0;j<hist.length;j++){var x=SW*j/219,y=SH/2-hist[j]*SH*.48;j?sx.lineTo(x,y):sx.moveTo(x,y)}sx.stroke();
+  var m=hit>.05?(5.8+hit*3.4):(1.2+Math.random()*.4);mag.textContent="M "+m.toFixed(1);
+  // 4. 时间码
+  var f=Math.floor(t*30);tc.textContent="04:"+pad(17+Math.floor(f/1800)%60)+":"+pad(Math.floor(f/30)%60)+":"+pad(f%30);
+  if(!reduce)requestAnimationFrame(frame);
+ }
+ requestAnimationFrame(frame);
+ new MutationObserver(function(){if(gate.classList.contains("out"))setTimeout(function(){if(gate.classList.contains("out"))alive=false},1500);else if(!alive){alive=true;t0=performance.now();hist=[];requestAnimationFrame(frame)}}).observe(gate,{attributes:true});
+})();
+</script>
+<script>
+/* ---------- 开场警报 → 背景音乐（原创合成音频） ---------- */
+(function(){
+  var ctx=null,master=null,bufs={},bgmSrc=null,on=false,started=false;
+  var btn=document.getElementById("tBgm"),gate=document.getElementById("gate");
+  var VOL=0.55;
+  function label(){btn.setAttribute("aria-pressed",on?"true":"false");btn.textContent=on?"♪ BGM 开":"♪ BGM 关"}
+  function remember(v){try{localStorage.setItem("tw_bgm",v?"1":"0")}catch(e){}}
+  function load(name){return fetch(name).then(function(r){return r.arrayBuffer()}).then(function(a){return new Promise(function(res,rej){ctx.decodeAudioData(a,res,rej)})}).then(function(b){bufs[name]=b;return b})}
+  function ensure(){
+    if(!ctx){var AC=window.AudioContext||window.webkitAudioContext;if(!AC)return Promise.reject();ctx=new AC();master=ctx.createGain();master.gain.value=0;master.connect(ctx.destination)}
+    if(ctx.state==="suspended")ctx.resume();
+    return Promise.all([bufs["intro.mp3"]||load("intro.mp3"),bufs["bgm.mp3"]||load("bgm.mp3")]);
+  }
+  // equal-power 曲线：听感上音量平滑，不会中间塌下去
+  function curve(up){var n=256,a=new Float32Array(n);for(var i=0;i<n;i++){var x=i/(n-1);a[i]=up?Math.sin(x*Math.PI/2):Math.cos(x*Math.PI/2)}return a}
+  // offset: 从 BGM 第几秒开始（跳过只有低音的前奏，让鼓点在交叉淡化快结束时进来）
+  function startBgm(at,fadeIn,offset){
+    var b=bufs["bgm.mp3"],s=ctx.createBufferSource(),g=ctx.createGain();
+    s.buffer=b;s.loop=true;s.loopStart=0.06;s.loopEnd=b.duration-0.06;
+    g.gain.setValueAtTime(0,at);g.gain.setValueCurveAtTime(curve(true),at,fadeIn);
+    s.connect(g);g.connect(master);s.start(at,offset||0.06);bgmSrc=s;
+  }
+  function fadeTo(v,sec){var t=ctx.currentTime;master.gain.cancelScheduledValues(t);master.gain.setValueAtTime(master.gain.value,t);master.gain.linearRampToValueAtTime(v,t+sec)}
+  function play(withIntro){
+    return ensure().then(function(){
+      on=true;label();fadeTo(VOL,0.4);
+      if(started)return;started=true;
+      var t=ctx.currentTime+0.05;
+      if(withIntro){
+        var s=ctx.createBufferSource(),ig=ctx.createGain(),D=bufs["intro.mp3"].duration;
+        var XF=3.5;                                   // 交叉淡化时长（秒）
+        var xs=t+D-XF;                                // 警报尾声开始交叉淡化
+        s.buffer=bufs["intro.mp3"];s.connect(ig);ig.connect(master);
+        ig.gain.setValueAtTime(1,t);ig.gain.setValueAtTime(1,xs);ig.gain.setValueCurveAtTime(curve(false),xs,XF);
+        s.start(t);
+        startBgm(xs-1.0,XF+1.5,3.0);                  // BGM 提前一点从底下慢慢升起来
+      }
+      else startBgm(t,2.5);
+    }).catch(function(){on=false;label()});
+  }
+  function stop(){on=false;label();if(ctx)fadeTo(0,0.6)}
+  btn.addEventListener("click",function(){if(on){stop();remember(false)}else{play(false);remember(true)}});
+  /* 重播开场：淡出当前音乐，下次 ENTER 重新播放警报 → BGM */
+  addEventListener("tw:replay",function(){started=false;on=false;label();if(ctx&&master){fadeTo(0,0.6);var s=bgmSrc;bgmSrc=null;if(s)setTimeout(function(){try{s.stop()}catch(e){}},700)}});
+  function closeGate(){gate.classList.add("out");setTimeout(function(){gate.style.display="none"},1250)}
+  document.getElementById("gateGo").addEventListener("click",function(){play(true);remember(true);closeGate()});
+  document.getElementById("gateMute").addEventListener("click",function(){remember(false);closeGate()});
+  label();
+})();
+</script>
+<script src="tw-roar.js"></script>
+<script src="tw-declass.js"></script>
+<script src="tw-myth.js"></script>
+<script src="tw-idle.js"></script>
+<script src="tw-ux.js"></script>
+<script src="tw-vs-battle.js"></script>
+</body>
+</html>
